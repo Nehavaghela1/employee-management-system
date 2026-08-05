@@ -4,15 +4,15 @@ from datetime import datetime, timedelta
 from typing import Optional
 import os
 from dotenv import load_dotenv
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer
 from fastapi import Depends
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 load_dotenv()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
+oauth2_scheme = HTTPBearer()
 # tells passlib to use bcrypt algorithm for hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -50,10 +50,11 @@ def verify_token(token: str):
     except JWTError:
         return None
 def get_current_user(
-    token: str = Depends(oauth2_scheme),  # token comes from request header
-    db: Session = Depends(get_db)          # db session injected
+    credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
 ):
-    email = verify_token(token)  # verify_token already exists in this file
+    token = credentials.credentials
+    email = verify_token(token)
     if not email:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     
@@ -61,7 +62,7 @@ def get_current_user(
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
-    return user  
+    return user 
 def get_admin_user(current_user=Depends(get_current_user)):
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
