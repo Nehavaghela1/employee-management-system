@@ -1,0 +1,84 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from app.database import get_db
+from app.models.employee import Employee
+from app.models.department import Department
+from app.schemas.employee import EmployeeCreate, EmployeeUpdate, EmployeeResponse
+
+router = APIRouter(prefix="/employees", tags=["Employees"])
+@router.get("/", response_model=List[EmployeeResponse])
+def get_employees(
+    department_id: Optional[int] = None,
+    name: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Employee)
+    if department_id:
+        query = query.filter(Employee.department_id == department_id)
+    if name:
+        query = query.filter(
+            Employee.first_name.ilike(f"%{name}%") |
+            Employee.last_name.ilike(f"%{name}%")
+        )
+    return query.all()
+
+@router.post("/", response_model=EmployeeResponse)
+def create_employee(emp: EmployeeCreate, db: Session = Depends(get_db)):
+    existing = db.query(Employee).filter(Employee.email == emp.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already exists")
+    if emp.department_id:
+        dept = db.query(Department).filter(Department.id == emp.department_id).first()
+        if not dept:
+            raise HTTPException(status_code=404, detail="Department not found")
+    new_emp = Employee(
+        first_name=emp.first_name,
+        last_name=emp.last_name,
+        email=emp.email,
+        phone=emp.phone,
+        position=emp.position,
+        salary=emp.salary,
+        hire_date=emp.hire_date,
+        department_id=emp.department_id
+    )
+    db.add(new_emp)
+    db.commit()
+    db.refresh(new_emp)
+    return new_emp
+
+@router.get("/{emp_id}", response_model=EmployeeResponse)
+def get_employee(emp_id: int, db: Session = Depends(get_db)):
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return emp
+
+@router.put("/{emp_id}", response_model=EmployeeResponse)
+def update_employee(emp_id: int, emp_data: EmployeeUpdate, db: Session = Depends(get_db)):
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if emp_data.department_id:
+        dept = db.query(Department).filter(D+-epartment.id == emp_data.department_id).first()
+        if not dept:
+            raise HTTPException(status_code=404, detail="Department not found")
+    if emp_data.first_name: emp.first_name = emp_data.first_name
+    if emp_data.last_name: emp.last_name = emp_data.last_name
+    if emp_data.email: emp.email = emp_data.email
+    if emp_data.phone: emp.phone = emp_data.phone
+    if emp_data.position: emp.position = emp_data.position
+    if emp_data.salary: emp.salary = emp_data.salary
+    if emp_data.hire_date: emp.hire_date = emp_data.hire_date
+    if emp_data.department_id: emp.department_id = emp_data.department_id
+    db.commit()
+    db.refresh(emp)
+    return emp
+@router.delete("/{emp_id}")
+def delete_employee(emp_id: int, db: Session = Depends(get_db)):
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    db.delete(emp)
+    db.commit()
+    return {"message": "emp deleted successfully"}
