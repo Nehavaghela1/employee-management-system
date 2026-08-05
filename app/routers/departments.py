@@ -4,6 +4,8 @@ from app.database import get_db
 from app.models.department import Department
 from app.schemas.department import DepartmentCreate, DepartmentUpdate, DepartmentResponse
 from typing import List
+from app.utils.auth import get_admin_user
+from app.models.user import User
 
 router = APIRouter(prefix="/departments", tags=["Departments"])
 
@@ -30,7 +32,12 @@ def get_department(dept_id: int, db: Session = Depends(get_db)):
     return dept
 
 @router.put("/{dept_id}", response_model=DepartmentResponse)
-def update_department(dept_id: int, dept_data: DepartmentUpdate, db: Session = Depends(get_db)):
+def update_department(
+    dept_id: int,
+    dept_data: DepartmentUpdate,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
     dept = db.query(Department).filter(Department.id == dept_id).first()
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
@@ -43,7 +50,11 @@ def update_department(dept_id: int, dept_data: DepartmentUpdate, db: Session = D
     return dept
 
 @router.delete("/{dept_id}")
-def delete_department(dept_id: int, db: Session = Depends(get_db)):
+def delete_department(
+    dept_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
     dept = db.query(Department).filter(Department.id == dept_id).first()
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")

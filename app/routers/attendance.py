@@ -6,6 +6,11 @@ from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.employee import Employee
 from app.schemas.attendance import AttendanceCreate,AttendanceUpdate,AttendanceResponse
+from datetime import date as date_today
+from app.utils.auth import get_current_user, get_admin_user
+from app.models.user import User
+
+
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 @router.get("/", response_model=List[AttendanceResponse])
 def get_attendance(
@@ -25,6 +30,8 @@ def mark_attendance(att: AttendanceCreate, db: Session = Depends(get_db)):
     emp = db.query(Employee).filter(Employee.id == att.employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
+    if att.date > date_today.today():
+        raise HTTPException(status_code=400, detail="Cannot mark attendance for future date")
     existing = db.query(Attendance).filter(
         Attendance.employee_id == att.employee_id,
         Attendance.date == att.date
@@ -42,6 +49,7 @@ def mark_attendance(att: AttendanceCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_att)
     return new_att
+
 @router.get("/{att_id}", response_model=AttendanceResponse)
 def get_attendance_record(att_id: int, db: Session = Depends(get_db)):
     att = db.query(Attendance).filter(Attendance.id == att_id).first()
@@ -50,10 +58,23 @@ def get_attendance_record(att_id: int, db: Session = Depends(get_db)):
     return att
 
 @router.put("/{att_id}", response_model=AttendanceResponse)
-def update_attendance(att_id: int, att_data: AttendanceUpdate, db: Session = Depends(get_db)):
+def update_attendance(
+    att_id: int,
+    att_data: AttendanceUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     att = db.query(Attendance).filter(Attendance.id == att_id).first()
     if not att:
         raise HTTPException(status_code=404, detail="Attendance record not found")
+    
+    # owner check — only admin or the employee themselves
+    if not current_user.is_admin and att.employee_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this attendance")
+    
+    if att_data.check_out and att.check_in:
+        if att_data.check_out <= att.check_in:
+            raise HTTPException(status_code=400, detail="Check out time must be after check in time")
     if att_data.check_in: att.check_in = att_data.check_in
     if att_data.check_out: att.check_out = att_data.check_out
     if att_data.status: att.status = att_data.status
@@ -62,10 +83,14 @@ def update_attendance(att_id: int, att_data: AttendanceUpdate, db: Session = Dep
     return att
 
 @router.delete("/{att_id}")
-def delete_attendance(att_id: int, db: Session = Depends(get_db)):
+def delete_attendance(
+    att_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
     att = db.query(Attendance).filter(Attendance.id == att_id).first()
     if not att:
         raise HTTPException(status_code=404, detail="Attendance record not found")
     db.delete(att)
     db.commit()
-    return {"message": "Attendance record deleted"}
+    return {"message": "Attendance deleted successfully"}

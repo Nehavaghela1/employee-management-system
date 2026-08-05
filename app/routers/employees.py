@@ -5,6 +5,8 @@ from app.database import get_db
 from app.models.employee import Employee
 from app.models.department import Department
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate, EmployeeResponse
+from app.utils.auth import get_current_user, get_admin_user
+from app.models.user import User
 
 router = APIRouter(prefix="/employees", tags=["Employees"])
 @router.get("/", response_model=List[EmployeeResponse])
@@ -60,7 +62,7 @@ def update_employee(emp_id: int, emp_data: EmployeeUpdate, db: Session = Depends
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
     if emp_data.department_id:
-        dept = db.query(Department).filter(D+-epartment.id == emp_data.department_id).first()
+        dept = db.query(Department).filter(Department.id == emp_data.department_id).first()
         if not dept:
             raise HTTPException(status_code=404, detail="Department not found")
     if emp_data.first_name: emp.first_name = emp_data.first_name
@@ -75,10 +77,14 @@ def update_employee(emp_id: int, emp_data: EmployeeUpdate, db: Session = Depends
     db.refresh(emp)
     return emp
 @router.delete("/{emp_id}")
-def delete_employee(emp_id: int, db: Session = Depends(get_db)):
+def delete_employee(
+    emp_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
     emp = db.query(Employee).filter(Employee.id == emp_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
     db.delete(emp)
     db.commit()
-    return {"message": "emp deleted successfully"}
+    return {"message": "Employee deleted successfully"}
