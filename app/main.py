@@ -1,11 +1,13 @@
 from fastapi import FastAPI
-from app.routers import auth ,departments, employees
+from app.routers import auth ,departments, employees ,attendance
 
 app = FastAPI(title="Employee Management System")
 
 app.include_router(auth.router)
 app.include_router(departments.router)
 app.include_router(employees.router)
+app.include_router(attendance.router)
+
 
 @app.get("/")
 def root():
