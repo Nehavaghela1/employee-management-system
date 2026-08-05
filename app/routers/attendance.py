@@ -10,7 +10,6 @@ from datetime import date as date_today
 from app.utils.auth import get_current_user, get_admin_user
 from app.models.user import User
 
-
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 @router.get("/", response_model=List[AttendanceResponse])
 def get_attendance(
@@ -26,7 +25,11 @@ def get_attendance(
     return query.all()
 
 @router.post("/", response_model=AttendanceResponse)
-def mark_attendance(att: AttendanceCreate, db: Session = Depends(get_db)):
+def mark_attendance(
+    att: AttendanceCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     emp = db.query(Employee).filter(Employee.id == att.employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")

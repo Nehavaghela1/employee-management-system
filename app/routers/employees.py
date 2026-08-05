@@ -26,7 +26,11 @@ def get_employees(
     return query.all()
 
 @router.post("/", response_model=EmployeeResponse)
-def create_employee(emp: EmployeeCreate, db: Session = Depends(get_db)):
+def create_employee(
+    emp: EmployeeCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     existing = db.query(Employee).filter(Employee.email == emp.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already exists")
@@ -57,7 +61,12 @@ def get_employee(emp_id: int, db: Session = Depends(get_db)):
     return emp
 
 @router.put("/{emp_id}", response_model=EmployeeResponse)
-def update_employee(emp_id: int, emp_data: EmployeeUpdate, db: Session = Depends(get_db)):
+def update_employee(
+    emp_id: int,
+    emp_data: EmployeeUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     emp = db.query(Employee).filter(Employee.id == emp_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")

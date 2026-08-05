@@ -4,7 +4,7 @@ from app.database import get_db
 from app.models.department import Department
 from app.schemas.department import DepartmentCreate, DepartmentUpdate, DepartmentResponse
 from typing import List
-from app.utils.auth import get_admin_user
+from app.utils.auth import get_admin_user, get_current_user
 from app.models.user import User
 
 router = APIRouter(prefix="/departments", tags=["Departments"])
@@ -13,8 +13,13 @@ router = APIRouter(prefix="/departments", tags=["Departments"])
 def get_departments(db: Session = Depends(get_db)):
     return db.query(Department).all()
 
+
 @router.post("/", response_model=DepartmentResponse)
-def create_department(dept: DepartmentCreate, db: Session = Depends(get_db)):
+def create_department(
+    dept: DepartmentCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     existing = db.query(Department).filter(Department.name == dept.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Department already exists")
