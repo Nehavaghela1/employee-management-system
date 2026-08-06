@@ -46,6 +46,11 @@ def create_employee(
     existing = db.query(Employee).filter(Employee.email == emp.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already exists")
+    if emp.salary and emp.salary < 0:
+         raise HTTPException(status_code=400, detail="Salary cannot be negative")
+
+    if emp.position and len(emp.position.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Position cannot be empty")
     if emp.department_id:
         dept = db.query(Department).filter(Department.id == emp.department_id).first()
         if not dept:

@@ -323,7 +323,21 @@ function showResult(id, data, isError = false) {
     el.textContent = JSON.stringify(data, null, 2);
     el.className = 'result ' + (isError ? 'error' : 'success');
 }
-
+async function apiCall(url, options = {}) {
+    try {
+        const response = await fetch(url, options);
+        if (response.status === 401) {
+            token = '';
+            updateTokenStatus();
+            alert('Session expired. Please login again.');
+            showSection('auth');
+            return null;
+        }
+        return response;
+    } catch(e) {
+        return null;
+    }
+}
 function updateTokenStatus() {
     const el = document.getElementById('token-display');
     if (token) {

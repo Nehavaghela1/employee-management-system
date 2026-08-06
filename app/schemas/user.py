@@ -3,11 +3,26 @@ from typing import Optional
 from datetime import datetime
 
 # What user sends when registering
-class UserRegister(BaseModel):
-    email: EmailStr        # validates it's real email format
-    username: str
-    password: str          
+from pydantic import BaseModel, EmailStr, field_validator
 
+class UserRegister(BaseModel):
+    email: EmailStr
+    username: str
+    password: str
+
+    @field_validator('password')
+    @classmethod
+    def password_min_length(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters')
+        return v
+
+    @field_validator('username')
+    @classmethod
+    def username_min_length(cls, v):
+        if len(v) < 3:
+            raise ValueError('Username must be at least 3 characters')
+        return v
 # What user sends when logging in
 class UserLogin(BaseModel):
     email: EmailStr

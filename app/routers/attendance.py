@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.employee import Employee
 from app.schemas.attendance import AttendanceCreate,AttendanceUpdate,AttendanceResponse
-from datetime import date as date_today,timedelta
+from datetime import datetime, date, timedelta
 from app.utils.auth import get_current_user, get_admin_user
 from app.models.user import User
 
@@ -33,10 +33,14 @@ def mark_attendance(
     emp = db.query(Employee).filter(Employee.id == att.employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
+    valid_statuses = ["present", "absent", "half_day", "work_from_home", "on_leave"]
+    if att.status and att.status not in valid_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Status must be one of: {valid_statuses}"
+        )        
     if att.date != date.today():
         raise HTTPException(status_code=400, detail="Can only mark attendance for today")
-    if att.date > date_today.today():
-        raise HTTPException(status_code=400, detail="Cannot mark attendance for future date")
     if att.date == date.today():
         current_time = datetime.now().time()
         if att.check_in and att.check_in > current_time:

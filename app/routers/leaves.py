@@ -37,7 +37,18 @@ def create_leave(
         raise HTTPException(status_code=404, detail="Employee not found")
     if leave.start_date < date.today():
         raise HTTPException(status_code=400, detail="Cannot apply for leave in the past")
-    
+# Check for overlapping leaves
+    overlapping = db.query(Leave).filter(
+        Leave.employee_id == leave.employee_id,
+        Leave.status != "rejected",
+        Leave.start_date <= leave.end_date,
+        Leave.end_date >= leave.start_date
+    ).first()
+    if overlapping:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Employee already has a leave request from {overlapping.start_date} to {overlapping.end_date}"
+        )
     if leave.end_date < leave.start_date:
         raise HTTPException(status_code=400, detail="End date must be after start date")
     

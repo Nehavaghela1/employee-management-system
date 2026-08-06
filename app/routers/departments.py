@@ -6,6 +6,7 @@ from app.schemas.department import DepartmentCreate, DepartmentUpdate, Departmen
 from typing import List
 from app.utils.auth import get_admin_user, get_current_user
 from app.models.user import User
+from app.models.employee import Employee
 
 router = APIRouter(prefix="/departments", tags=["Departments"])
 
@@ -67,6 +68,14 @@ def delete_department(
     dept = db.query(Department).filter(Department.id == dept_id).first()
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
+
+# Check if department has employees
+    emp_count = db.query(Employee).filter(Employee.department_id == dept_id).count()
+    if emp_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot delete department — {emp_count} employees assigned to it. Reassign them first."
+        )
     db.delete(dept)
     db.commit()
     return {"message": "Department deleted successfully"}
