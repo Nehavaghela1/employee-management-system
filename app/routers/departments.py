@@ -68,8 +68,7 @@ def delete_department(
     dept = db.query(Department).filter(Department.id == dept_id).first()
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
-
-# Check if department has employees
+    # Check if department has employees
     emp_count = db.query(Employee).filter(Employee.department_id == dept_id).count()
     if emp_count > 0:
         raise HTTPException(
