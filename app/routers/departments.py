@@ -10,9 +10,13 @@ from app.models.user import User
 router = APIRouter(prefix="/departments", tags=["Departments"])
 
 @router.get("/", response_model=List[DepartmentResponse])
-def get_departments(db: Session = Depends(get_db)):
-    return db.query(Department).all()
-
+def get_departments(
+    page: int = 1,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    skip = (page - 1) * limit
+    return db.query(Department).offset(skip).limit(limit).all()
 
 @router.post("/", response_model=DepartmentResponse)
 def create_department(

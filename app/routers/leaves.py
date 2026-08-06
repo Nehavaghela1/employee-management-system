@@ -7,11 +7,16 @@ from app.models.employee import Employee
 from app.schemas.leave import LeaveCreate, LeaveUpdate, LeaveResponse
 from app.utils.auth import get_current_user, get_admin_user
 from app.models.user import User
+from datetime import date
+
+
 router = APIRouter(prefix="/leaves", tags=["Leaves"])
 @router.get("/", response_model=List[LeaveResponse])
 def get_leaves(
     employee_id: Optional[int] = None,
     status: Optional[str] = None,
+    page: int = 1,
+    limit: int = 10,
     db: Session = Depends(get_db)
 ):
     query = db.query(Leave)
@@ -19,7 +24,8 @@ def get_leaves(
         query = query.filter(Leave.employee_id == employee_id)
     if status:
         query = query.filter(Leave.status == status)
-    return query.all()
+    skip = (page - 1) * limit
+    return query.offset(skip).limit(limit).all()
 @router.post("/", response_model=LeaveResponse)
 def create_leave(
     leave: LeaveCreate,
@@ -29,6 +35,8 @@ def create_leave(
     emp = db.query(Employee).filter(Employee.id == leave.employee_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
+    if leave.start_date < date.today():
+        raise HTTPException(status_code=400, detail="Cannot apply for leave in the past")
     
     if leave.end_date < leave.start_date:
         raise HTTPException(status_code=400, detail="End date must be after start date")

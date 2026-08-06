@@ -7,12 +7,17 @@ from app.models.department import Department
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate, EmployeeResponse
 from app.utils.auth import get_current_user, get_admin_user
 from app.models.user import User
+from datetime import date as date_today
 
 router = APIRouter(prefix="/employees", tags=["Employees"])
 @router.get("/", response_model=List[EmployeeResponse])
 def get_employees(
     department_id: Optional[int] = None,
     name: Optional[str] = None,
+    sort_by: Optional[str] = "created_at",
+    order: Optional[str] = "desc",
+    page: int = 1,
+    limit: int = 10,
     db: Session = Depends(get_db)
 ):
     query = db.query(Employee)
@@ -23,7 +28,14 @@ def get_employees(
             Employee.first_name.ilike(f"%{name}%") |
             Employee.last_name.ilike(f"%{name}%")
         )
-    return query.all()
+    if sort_by == "salary":
+        query = query.order_by(Employee.salary.desc() if order == "desc" else Employee.salary.asc())
+    elif sort_by == "first_name":
+        query = query.order_by(Employee.first_name.desc() if order == "desc" else Employee.first_name.asc())
+    else:
+        query = query.order_by(Employee.created_at.desc())
+    skip = (page - 1) * limit
+    return query.offset(skip).limit(limit).all()
 
 @router.post("/", response_model=EmployeeResponse)
 def create_employee(
@@ -38,6 +50,8 @@ def create_employee(
         dept = db.query(Department).filter(Department.id == emp.department_id).first()
         if not dept:
             raise HTTPException(status_code=404, detail="Department not found")
+    if att.date != date.today():
+        raise HTTPException(status_code=400, detail="Can only mark attendance for today")
     new_emp = Employee(
         first_name=emp.first_name,
         last_name=emp.last_name,
