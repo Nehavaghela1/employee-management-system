@@ -50,8 +50,7 @@ def create_employee(
         dept = db.query(Department).filter(Department.id == emp.department_id).first()
         if not dept:
             raise HTTPException(status_code=404, detail="Department not found")
-    if att.date != date.today():
-        raise HTTPException(status_code=400, detail="Can only mark attendance for today")
+
     new_emp = Employee(
         first_name=emp.first_name,
         last_name=emp.last_name,
