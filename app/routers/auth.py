@@ -72,3 +72,6 @@ def make_admin(
     db.refresh(user)
     logger.info(f"User promoted to admin: {user.email} by {current_user.email}")
     return {"message": f"{user.email} is now admin"}
+@router.get("/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    return current_user

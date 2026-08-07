@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employees — EMS</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .search-bar input,
+        .search-bar select {
+            flex: 1;
+            min-width: 140px;
+        }
+        .btn-apply {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn-apply:hover { background: #1d4ed8; }
+        .btn-reset {
+            background: #f1f5f9;
+            color: #475569;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .btn-reset:hover { background: #e2e8f0; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <div class="navbar-nav">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="employees.html" class="nav-link active">Employees</a>
+        <a href="departments.html" class="nav-link">Departments</a>
+        <a href="attendance.html" class="nav-link">Attendance</a>
+        <a href="leaves.html" class="nav-link">Leaves</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+    </div>
+    <div class="navbar-user">
+        <span class="user-badge" id="user-email"></span>
+        <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
+    </div>
+</nav>
+
+<div class="main-content">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">👥 employees</div>
+            <button class="btn btn-primary btn-sm" onclick="openCreateModal()">+ add employee</button>
+        </div>
+
+        <!-- SEARCH & FILTER BAR -->
+        <div class="search-bar">
+            <input
+                type="text"
+                id="search-name"
+                placeholder="🔍 search by name..."
+                onkeydown="if(event.key==='Enter') applyFilters()"
+            >
+            <select id="filter-dept">
+                <option value="">all departments</option>
+            </select>
+            <select id="sort-by">
+                <option value="created_at">newest first</option>
+                <option value="first_name">name a–z</option>
+                <option value="salary">salary</option>
+            </select>
+            <button class="btn-apply" onclick="applyFilters()">apply filter</button>
+            <button class="btn-reset" onclick="resetFilters()" title="Clear all filters">✕ reset</button>
+        </div>
+
+        <div class="alert alert-error" id="list-error" style="display:none">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-content"><div id="list-error-msg"></div></div>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>name</th>
+                        <th>email</th>
+                        <th>position</th>
+                        <th>department</th>
+                        <th>salary</th>
+                        <th>actions</th>
+                    </tr>
+                </thead>
+                <tbody id="employees-table">
+                    <tr><td colspan="6" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:16px;align-items:center">
+            <button class="btn btn-secondary btn-sm" onclick="changePage(-1)">← prev</button>
+            <span id="page-info" style="font-size:13px;color:#64748b">page 1</span>
+            <button class="btn btn-secondary btn-sm" onclick="changePage(1)">next →</button>
+        </div>
+    </div>
+</div>
+
+<!-- CREATE/EDIT MODAL -->
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title" id="modal-title">add employee</div>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+
+        <div class="alert alert-error" id="modal-error">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-content">
+                <div class="alert-title">please fix the following:</div>
+                <ul class="alert-list" id="modal-error-list"></ul>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group">
+                <label>first name <span style="color:#ef4444">*</span></label>
+                <input type="text" id="f-firstname" placeholder="first name">
+                <div class="field-error" id="f-firstname-error"></div>
+            </div>
+            <div class="form-group">
+                <label>last name <span style="color:#ef4444">*</span></label>
+                <input type="text" id="f-lastname" placeholder="last name">
+                <div class="field-error" id="f-lastname-error"></div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>email <span style="color:#ef4444">*</span></label>
+            <input type="email" id="f-email" placeholder="employee@company.com">
+            <div class="field-error" id="f-email-error"></div>
+        </div>
+
+        <div class="form-group">
+            <label>position <span style="color:#ef4444">*</span></label>
+            <input type="text" id="f-position" placeholder="e.g. software developer">
+            <div class="field-error" id="f-position-error"></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group">
+                <label>phone</label>
+                <input type="tel" id="f-phone" placeholder="10-15 digits">
+                <div class="field-error" id="f-phone-error"></div>
+            </div>
+            <div class="form-group">
+                <label>salary <span style="font-size:11px;color:#64748b">(admin only)</span></label>
+                <input type="number" id="f-salary" placeholder="monthly salary" min="0">
+                <div class="field-error" id="f-salary-error"></div>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group">
+                <label>hire date</label>
+                <input type="date" id="f-hiredate">
+                <div class="field-error" id="f-hiredate-error"></div>
+            </div>
+            <div class="form-group">
+                <label>department</label>
+                <select id="f-department">
+                    <option value="">select department</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>link user account <span style="font-size:11px;color:#64748b">(optional — user id)</span></label>
+            <input type="number" id="f-userid" placeholder="user id to link">
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+            <button class="btn btn-secondary" onclick="closeModal()">cancel</button>
+            <button class="btn btn-primary" id="modal-submit" onclick="submitEmployee()">save employee</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    requireLogin();
+
+    document.getElementById('user-email').textContent = getCurrentEmail();
+    if (isAdmin()) {
+        document.getElementById('admin-badge').style.display = 'inline';
+        document.getElementById('admin-link').style.display = 'inline';
+    }
+
+    let currentPage = 1;
+    let editingId = null;
+    let departments = [];
+
+    // ─── Load departments for filter dropdown and form ───────────────────────
+    async function loadDepartments() {
+        try {
+            // FIX: added authHeaders() so protected endpoints respond correctly
+            const res = await fetch('http://localhost:8000/departments/?limit=100', {
+                headers: authHeaders()
+            });
+            if (!res.ok) throw new Error('failed to load departments');
+            departments = await res.json();
+
+            const filter   = document.getElementById('filter-dept');
+            const formSel  = document.getElementById('f-department');
+
+            departments.forEach(d => {
+                filter.innerHTML  += `<option value="${d.id}">${d.name}</option>`;
+                formSel.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+            });
+        } catch (err) {
+            console.error('loadDepartments:', err);
+        }
+    }
+
+    // ─── Core employee loader (always uses current filter state) ─────────────
+    async function loadEmployees() {
+        const name = document.getElementById('search-name').value.trim();
+        const dept = document.getElementById('filter-dept').value;
+        const sort = document.getElementById('sort-by').value;
+
+        const params = { page: currentPage, limit: 10, sort_by: sort };
+        if (name) params.name = name;
+        if (dept) params.department_id = dept;
+
+        const q = new URLSearchParams(params).toString();
+
+        // Show loading state
+        document.getElementById('employees-table').innerHTML =
+            `<tr><td colspan="6" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>`;
+        document.getElementById('list-error').style.display = 'none';
+
+        try {
+            // FIX: added authHeaders() — without this, the backend returns 401/empty for admins
+            const res = await fetch(`http://localhost:8000/employees/?${q}`, {
+                headers: authHeaders()
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                document.getElementById('list-error-msg').textContent =
+                    err.detail || `error ${res.status}: could not load employees`;
+                document.getElementById('list-error').style.display = 'flex';
+                document.getElementById('employees-table').innerHTML =
+                    `<tr><td colspan="6"><div class="empty-state"><div class="icon">⚠️</div><p>failed to load employees</p></div></td></tr>`;
+                return;
+            }
+
+            const data = await res.json();
+            document.getElementById('page-info').textContent = `page ${currentPage}`;
+
+            if (!data.length) {
+                document.getElementById('employees-table').innerHTML =
+                    `<tr><td colspan="6"><div class="empty-state"><div class="icon">👤</div><p>no employees found</p></div></td></tr>`;
+                return;
+            }
+
+            document.getElementById('employees-table').innerHTML = data.map(e => {
+                const dept = departments.find(d => d.id === e.department_id);
+                return `
+                <tr>
+                    <td><strong>${e.first_name} ${e.last_name}</strong></td>
+                    <td style="color:#64748b">${e.email}</td>
+                    <td>${e.position}</td>
+                    <td>${dept
+                        ? `<span class="badge badge-blue">${dept.name}</span>`
+                        : '<span class="badge badge-gray">unassigned</span>'
+                    }</td>
+                    <td>${e.salary ? `₹${e.salary.toLocaleString()}` : '—'}</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm"
+                            onclick="openEditModal(${JSON.stringify(e).replace(/"/g, '&quot;')})">edit</button>
+                        ${isAdmin()
+                            ? `<button class="btn btn-danger btn-sm" style="margin-left:4px"
+                                onclick="deleteEmployee(${e.id})">delete</button>`
+                            : ''}
+                    </td>
+                </tr>`;
+            }).join('');
+
+        } catch (err) {
+            document.getElementById('list-error-msg').textContent = 'connection failed — is the server running?';
+            document.getElementById('list-error').style.display = 'flex';
+            document.getElementById('employees-table').innerHTML =
+                `<tr><td colspan="6"><div class="empty-state"><div class="icon">🔌</div><p>could not connect to server</p></div></td></tr>`;
+        }
+    }
+
+    // ─── Filter controls ─────────────────────────────────────────────────────
+
+    // Called by "Apply Filter" button (and Enter key in search box)
+    function applyFilters() {
+        currentPage = 1;   // reset to page 1 on new filter
+        loadEmployees();
+    }
+
+    // Reset all filter inputs and reload
+    function resetFilters() {
+        document.getElementById('search-name').value = '';
+        document.getElementById('filter-dept').value = '';
+        document.getElementById('sort-by').value = 'created_at';
+        currentPage = 1;
+        loadEmployees();
+    }
+
+    // ─── Pagination ───────────────────────────────────────────────────────────
+    function changePage(dir) {
+        if (currentPage + dir < 1) return;
+        currentPage += dir;
+        loadEmployees();
+    }
+
+    // ─── Modal helpers ────────────────────────────────────────────────────────
+    function openCreateModal() {
+        editingId = null;
+        document.getElementById('modal-title').textContent = 'add employee';
+        document.getElementById('modal-submit').textContent = 'save employee';
+        ['f-firstname','f-lastname','f-email','f-position',
+         'f-phone','f-salary','f-hiredate','f-userid'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
+        document.getElementById('f-department').value = '';
+        document.getElementById('modal-error').classList.remove('show');
+        document.getElementById('modal').classList.add('show');
+        document.getElementById('f-salary').disabled = !isAdmin();
+    }
+
+    function openEditModal(emp) {
+        editingId = emp.id;
+        document.getElementById('modal-title').textContent = 'edit employee';
+        document.getElementById('modal-submit').textContent = 'update employee';
+        document.getElementById('f-firstname').value  = emp.first_name;
+        document.getElementById('f-lastname').value   = emp.last_name;
+        document.getElementById('f-email').value      = emp.email;
+        document.getElementById('f-position').value   = emp.position;
+        document.getElementById('f-phone').value      = emp.phone      || '';
+        document.getElementById('f-salary').value     = emp.salary     || '';
+        document.getElementById('f-hiredate').value   = emp.hire_date  || '';
+        document.getElementById('f-department').value = emp.department_id || '';
+        document.getElementById('f-userid').value     = emp.user_id    || '';
+        document.getElementById('modal-error').classList.remove('show');
+        document.getElementById('modal').classList.add('show');
+        document.getElementById('f-salary').disabled = !isAdmin();
+    }
+
+    function closeModal() {
+        document.getElementById('modal').classList.remove('show');
+    }
+
+    // ─── Form validation ──────────────────────────────────────────────────────
+    function validateForm() {
+        const errors = [];
+        const fields = [
+            { id: 'f-firstname', label: 'first name', required: true },
+            { id: 'f-lastname',  label: 'last name',  required: true },
+            { id: 'f-email',     label: 'email',      required: true, email: true },
+            { id: 'f-position',  label: 'position',   required: true }
+        ];
+
+        fields.forEach(f => {
+            const val = document.getElementById(f.id).value.trim();
+            document.getElementById(f.id).classList.remove('error');
+            document.getElementById(`${f.id}-error`).classList.remove('show');
+
+            if (f.required && !val) {
+                document.getElementById(f.id).classList.add('error');
+                document.getElementById(`${f.id}-error`).textContent = `${f.label} is required`;
+                document.getElementById(`${f.id}-error`).classList.add('show');
+                errors.push(`${f.label} is required`);
+            } else if (f.email && val && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                document.getElementById(f.id).classList.add('error');
+                document.getElementById(`${f.id}-error`).textContent = 'enter a valid email';
+                document.getElementById(`${f.id}-error`).classList.add('show');
+                errors.push('enter a valid email');
+            }
+        });
+
+        const phone = document.getElementById('f-phone').value.trim();
+        if (phone) {
+            const digits = phone.replace(/[+\-\s]/g, '');
+            if (!/^\d+$/.test(digits) || digits.length < 10 || digits.length > 15) {
+                document.getElementById('f-phone').classList.add('error');
+                document.getElementById('f-phone-error').textContent = 'phone must be 10-15 digits';
+                document.getElementById('f-phone-error').classList.add('show');
+                errors.push('phone must be 10-15 digits');
+            }
+        }
+
+        const salary = document.getElementById('f-salary').value;
+        if (salary && parseInt(salary) < 0) {
+            document.getElementById('f-salary').classList.add('error');
+            document.getElementById('f-salary-error').textContent = 'salary cannot be negative';
+            document.getElementById('f-salary-error').classList.add('show');
+            errors.push('salary cannot be negative');
+        }
+
+        return errors;
+    }
+
+    // ─── Submit (create / update) ─────────────────────────────────────────────
+    async function submitEmployee() {
+        const errors = validateForm();
+        if (errors.length > 0) {
+            document.getElementById('modal-error-list').innerHTML =
+                errors.map(e => `<li>${e}</li>`).join('');
+            document.getElementById('modal-error').classList.add('show');
+            return;
+        }
+
+        const body = {
+            first_name: document.getElementById('f-firstname').value.trim(),
+            last_name:  document.getElementById('f-lastname').value.trim(),
+            email:      document.getElementById('f-email').value.trim(),
+            position:   document.getElementById('f-position').value.trim()
+        };
+
+        const phone    = document.getElementById('f-phone').value.trim();
+        const salary   = document.getElementById('f-salary').value;
+        const hiredate = document.getElementById('f-hiredate').value;
+        const dept     = document.getElementById('f-department').value;
+        const userid   = document.getElementById('f-userid').value;
+
+        if (phone)    body.phone         = phone;
+        if (salary)   body.salary        = parseInt(salary);
+        if (hiredate) body.hire_date     = hiredate;
+        if (dept)     body.department_id = parseInt(dept);
+        if (userid)   body.user_id       = parseInt(userid);
+
+        const btn = document.getElementById('modal-submit');
+        btn.disabled  = true;
+        btn.innerHTML = '<span class="loading"></span> saving...';
+
+        try {
+            const url    = editingId
+                ? `http://localhost:8000/employees/${editingId}`
+                : 'http://localhost:8000/employees/';
+            const method = editingId ? 'PUT' : 'POST';
+
+            const res  = await fetch(url, {
+                method,
+                headers: authHeaders(),
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                closeModal();
+                loadEmployees();
+            } else {
+                const msg = data.detail || 'something went wrong';
+                document.getElementById('modal-error-list').innerHTML = `<li>${msg}</li>`;
+                document.getElementById('modal-error').classList.add('show');
+            }
+        } catch(e) {
+            document.getElementById('modal-error-list').innerHTML = '<li>connection failed</li>';
+            document.getElementById('modal-error').classList.add('show');
+        }
+
+        btn.disabled  = false;
+        btn.textContent = editingId ? 'update employee' : 'save employee';
+    }
+
+    // ─── Delete ───────────────────────────────────────────────────────────────
+    async function deleteEmployee(id) {
+        if (!confirm('are you sure you want to delete this employee?')) return;
+        const res = await fetch(`http://localhost:8000/employees/${id}`, {
+            method: 'DELETE',
+            headers: authHeaders()
+        });
+        if (res.ok) loadEmployees();
+        else {
+            const data = await res.json();
+            alert(data.detail || 'delete failed');
+        }
+    }
+
+    // ─── Init ─────────────────────────────────────────────────────────────────
+    loadDepartments().then(() => loadEmployees());
+</script>
+</body>
+</html>

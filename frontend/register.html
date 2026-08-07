@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register — EMS</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .password-rules {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 6px;
+            list-style: none;
+        }
+        .password-rules li {
+            padding: 2px 0;
+            transition: color 0.2s;
+        }
+        .password-rules li::before { content: "○ "; }
+        .password-rules li.pass { color: #22c55e; }
+        .password-rules li.pass::before { content: "✓ "; }
+        .password-rules li.fail { color: #ef4444; }
+        .password-rules li.fail::before { content: "✗ "; }
+        .char-count {
+            font-size: 11px;
+            color: #94a3b8;
+            float: right;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body class="auth-page">
+
+<div class="auth-card">
+    <div class="auth-logo">
+        <div style="font-size:48px">🏢</div>
+        <h1>Create account</h1>
+        <p>join employee management system</p>
+    </div>
+
+    <!-- Summary error box -->
+    <div class="alert alert-error" id="error-box">
+        <span class="alert-icon">⚠️</span>
+        <div class="alert-content">
+            <div class="alert-title">please fix the following:</div>
+            <ul class="alert-list" id="error-list"></ul>
+        </div>
+    </div>
+
+    <!-- Success box -->
+    <div class="alert alert-success" id="success-box">
+        <span class="alert-icon">✅</span>
+        <div class="alert-content">
+            <div class="alert-title">account created successfully!</div>
+            <div>redirecting to login in 2 seconds...</div>
+        </div>
+    </div>
+
+    <!-- Email -->
+    <div class="form-group">
+        <label>email address <span style="color:#ef4444">*</span></label>
+        <input type="email" id="email" placeholder="you@example.com" maxlength="100" autocomplete="email">
+        <div class="field-error" id="email-error"></div>
+    </div>
+
+    <!-- Username -->
+    <div class="form-group">
+        <label>username <span style="color:#ef4444">*</span></label>
+        <input type="text" id="username" placeholder="minimum 3 characters" maxlength="30" autocomplete="username">
+        <div class="field-error" id="username-error"></div>
+        <span class="char-count" id="username-count">0/30</span>
+    </div>
+
+    <!-- Password -->
+    <div class="form-group">
+        <label>password <span style="color:#ef4444">*</span></label>
+        <div style="position:relative">
+            <input type="password" id="password" placeholder="minimum 8 characters" maxlength="50" autocomplete="new-password">
+            <button type="button" id="toggle-password" onclick="togglePassword('password','toggle-password')"
+                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:16px">👁</button>
+        </div>
+        <div class="field-error" id="password-error"></div>
+
+        <!-- Strength bar -->
+        <div id="strength-bar" style="margin-top:8px;height:4px;border-radius:4px;background:#e2e8f0;display:none">
+            <div id="strength-fill" style="height:100%;border-radius:4px;transition:all 0.3s;width:0%"></div>
+        </div>
+        <div id="strength-text" style="font-size:11px;margin-top:4px;display:none"></div>
+
+        <!-- Password rules -->
+        <ul class="password-rules" id="password-rules" style="display:none">
+            <li id="rule-length">at least 8 characters</li>
+            <li id="rule-upper">at least one uppercase letter</li>
+            <li id="rule-number">at least one number</li>
+            <li id="rule-special">at least one special character (bonus)</li>
+        </ul>
+    </div>
+
+    <!-- Confirm password -->
+    <div class="form-group">
+        <label>confirm password <span style="color:#ef4444">*</span></label>
+        <div style="position:relative">
+            <input type="password" id="confirm-password" placeholder="re-enter your password" maxlength="50" autocomplete="new-password">
+            <button type="button" onclick="togglePassword('confirm-password','toggle-confirm')" id="toggle-confirm"
+                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:16px">👁</button>
+        </div>
+        <div class="field-error" id="confirm-error"></div>
+        <div id="match-indicator" style="font-size:11px;margin-top:4px;display:none"></div>
+    </div>
+
+    <button class="btn btn-primary" id="register-btn" onclick="handleRegister()">
+        create account
+    </button>
+
+    <div class="auth-link">
+        already have an account? <a href="login.html">sign in</a>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    // Redirect if already logged in
+    if (isLoggedIn()) window.location.href = 'dashboard.html';
+
+    // Toggle password visibility
+    function togglePassword(inputId, btnId) {
+        const input = document.getElementById(inputId);
+        const btn = document.getElementById(btnId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.textContent = '🙈';
+        } else {
+            input.type = 'password';
+            btn.textContent = '👁';
+        }
+    }
+
+    // Helper functions
+    function clearFieldError(id) {
+        document.getElementById(id).classList.remove('error');
+        const errorEl = document.getElementById(`${id}-error`);
+        if (errorEl) { errorEl.textContent = ''; errorEl.classList.remove('show'); }
+        document.getElementById('error-box').classList.remove('show');
+    }
+
+    function setFieldError(id, msg) {
+        document.getElementById(id).classList.add('error');
+        const errorEl = document.getElementById(`${id}-error`);
+        if (errorEl) { errorEl.textContent = msg; errorEl.classList.add('show'); }
+    }
+
+    // Username character counter
+    document.getElementById('username').addEventListener('input', function() {
+        const len = this.value.length;
+        document.getElementById('username-count').textContent = `${len}/30`;
+        clearFieldError('username');
+    });
+
+    // Password strength + rules
+    document.getElementById('password').addEventListener('input', function() {
+        const val = this.value;
+        const bar = document.getElementById('strength-bar');
+        const fill = document.getElementById('strength-fill');
+        const text = document.getElementById('strength-text');
+        const rules = document.getElementById('password-rules');
+
+        if (!val) {
+            bar.style.display = 'none';
+            text.style.display = 'none';
+            rules.style.display = 'none';
+            return;
+        }
+
+        bar.style.display = 'block';
+        text.style.display = 'block';
+        rules.style.display = 'block';
+
+        // Update rules
+        const hasLength = val.length >= 8;
+        const hasUpper = /[A-Z]/.test(val);
+        const hasNumber = /[0-9]/.test(val);
+        const hasSpecial = /[^A-Za-z0-9]/.test(val);
+
+        updateRule('rule-length', hasLength);
+        updateRule('rule-upper', hasUpper);
+        updateRule('rule-number', hasNumber);
+        updateRule('rule-special', hasSpecial);
+
+        // Strength score
+        let score = [hasLength, hasUpper, hasNumber, hasSpecial].filter(Boolean).length;
+        const levels = [
+            { color: '#ef4444', label: 'weak', width: '25%' },
+            { color: '#f59e0b', label: 'fair', width: '50%' },
+            { color: '#3b82f6', label: 'good', width: '75%' },
+            { color: '#22c55e', label: 'strong', width: '100%' }
+        ];
+        const level = levels[score - 1] || levels[0];
+        fill.style.background = level.color;
+        fill.style.width = level.width;
+        text.style.color = level.color;
+        text.textContent = `password strength: ${level.label}`;
+
+        clearFieldError('password');
+
+        // Update match indicator if confirm has value
+        checkPasswordMatch();
+    });
+
+    function updateRule(id, passed) {
+        const el = document.getElementById(id);
+        el.className = passed ? 'pass' : '';
+    }
+
+    // Confirm password match indicator
+    document.getElementById('confirm-password').addEventListener('input', function() {
+        document.getElementById('confirm-password').classList.remove('error');
+        document.getElementById('confirm-error').classList.remove('show');
+        checkPasswordMatch();
+    });
+
+    function checkPasswordMatch() {
+        const password = document.getElementById('password').value;
+        const confirm = document.getElementById('confirm-password').value;
+        const indicator = document.getElementById('match-indicator');
+
+        if (!confirm) { indicator.style.display = 'none'; return; }
+
+        indicator.style.display = 'block';
+        if (password === confirm) {
+            indicator.style.color = '#22c55e';
+            indicator.textContent = '✓ passwords match';
+        } else {
+            indicator.style.color = '#ef4444';
+            indicator.textContent = '✗ passwords do not match';
+        }
+    }
+
+    // Blur validation — runs when user leaves each field
+    document.getElementById('email').addEventListener('blur', function() {
+        const val = this.value.trim();
+        clearFieldError('email');
+        if (!val) {
+            setFieldError('email', 'email is required');
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+            setFieldError('email', 'enter a valid email address');
+        } else if (val.length > 100) {
+            setFieldError('email', 'email is too long');
+        }
+    });
+
+    document.getElementById('username').addEventListener('blur', function() {
+        const val = this.value.trim();
+        clearFieldError('username');
+        if (!val) {
+            setFieldError('username', 'username is required');
+        } else if (val.length < 3) {
+            setFieldError('username', 'username must be at least 3 characters');
+        } else if (/\s/.test(val)) {
+            setFieldError('username', 'username cannot contain spaces');
+        } else if (!/^[a-zA-Z0-9_]+$/.test(val)) {
+            setFieldError('username', 'username can only contain letters, numbers and underscore');
+        }
+    });
+
+    document.getElementById('password').addEventListener('blur', function() {
+        const val = this.value;
+        clearFieldError('password');
+        if (!val) {
+            setFieldError('password', 'password is required');
+        } else if (val.length < 8) {
+            setFieldError('password', 'password must be at least 8 characters');
+        }
+    });
+
+    document.getElementById('confirm-password').addEventListener('blur', function() {
+        const val = this.value;
+        const password = document.getElementById('password').value;
+        document.getElementById('confirm-password').classList.remove('error');
+        document.getElementById('confirm-error').classList.remove('show');
+        if (!val) {
+            setFieldError('confirm-password', 'please confirm your password');
+        } else if (val !== password) {
+            setFieldError('confirm-password', 'passwords do not match');
+        }
+    });
+
+    // Clear errors on input
+    document.getElementById('email').addEventListener('input', () => clearFieldError('email'));
+
+    // Full validation on submit
+    function validate() {
+        const email = document.getElementById('email').value.trim();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const confirm = document.getElementById('confirm-password').value;
+        const errors = [];
+
+        // Email
+        if (!email) {
+            setFieldError('email', 'email is required');
+            errors.push('email is required');
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setFieldError('email', 'enter a valid email address');
+            errors.push('enter a valid email address');
+        }
+
+        // Username — sequential
+        if (!username) {
+            setFieldError('username', 'username is required');
+            errors.push('username is required');
+        } else if (username.length < 3) {
+            setFieldError('username', 'username must be at least 3 characters');
+            errors.push('username must be at least 3 characters');
+        } else if (/\s/.test(username)) {
+            setFieldError('username', 'username cannot contain spaces');
+            errors.push('username cannot contain spaces');
+        } else if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+            setFieldError('username', 'only letters, numbers and underscore allowed');
+            errors.push('only letters, numbers and underscore allowed in username');
+        }
+
+        // Password — sequential
+        if (!password) {
+            setFieldError('password', 'password is required');
+            errors.push('password is required');
+        } else if (password.length < 8) {
+            setFieldError('password', 'password must be at least 8 characters');
+            errors.push('password must be at least 8 characters');
+        }
+
+        // Confirm password — sequential
+        if (!confirm) {
+            setFieldError('confirm-password', 'please confirm your password');
+            errors.push('please confirm your password');
+        } else if (password !== confirm) {
+            setFieldError('confirm-password', 'passwords do not match');
+            errors.push('passwords do not match');
+        }
+
+        return errors;
+    }
+
+    function showErrors(errors) {
+        if (!errors.length) return;
+        document.getElementById('error-list').innerHTML = errors.map(e => `<li>${e}</li>`).join('');
+        document.getElementById('error-box').classList.add('show');
+        document.getElementById('error-box').scrollIntoView({behavior: 'smooth', block: 'nearest'});
+    }
+
+    function resetForm() {
+        ['email', 'username', 'password', 'confirm-password'].forEach(id => {
+            document.getElementById(id).value = '';
+            document.getElementById(id).classList.remove('error');
+            const err = document.getElementById(`${id}-error`);
+            if (err) { err.textContent = ''; err.classList.remove('show'); }
+        });
+        document.getElementById('strength-bar').style.display = 'none';
+        document.getElementById('strength-text').style.display = 'none';
+        document.getElementById('password-rules').style.display = 'none';
+        document.getElementById('match-indicator').style.display = 'none';
+        document.getElementById('username-count').textContent = '0/30';
+        document.getElementById('error-box').classList.remove('show');
+    }
+
+    async function handleRegister() {
+        document.getElementById('error-box').classList.remove('show');
+        document.getElementById('success-box').classList.remove('show');
+
+        const errors = validate();
+        if (errors.length > 0) { showErrors(errors); return; }
+
+        const btn = document.getElementById('register-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> creating account...';
+
+        try {
+            const res = await fetch('http://localhost:8000/auth/register', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    email: document.getElementById('email').value.trim(),
+                    username: document.getElementById('username').value.trim(),
+                    password: document.getElementById('password').value
+                })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                resetForm();
+                document.getElementById('success-box').classList.add('show');
+                setTimeout(() => window.location.href = 'login.html', 2000);
+            } else {
+                // Handle both string and array error formats from server
+                if (typeof data.detail === 'string') {
+                    showErrors([data.detail]);
+                } else if (Array.isArray(data.detail)) {
+                    showErrors(data.detail.map(e => e.msg || e));
+                } else {
+                    showErrors(['registration failed. please try again.']);
+                }
+            }
+        } catch(e) {
+            showErrors(['connection failed. make sure server is running.']);
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = 'create account';
+    }
+
+    // Enter key support
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Enter') handleRegister();
+    });
+</script>
+</body>
+</html>

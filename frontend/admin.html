@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — EMS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <div class="navbar-nav">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="employees.html" class="nav-link">Employees</a>
+        <a href="departments.html" class="nav-link">Departments</a>
+        <a href="attendance.html" class="nav-link">Attendance</a>
+        <a href="leaves.html" class="nav-link">Leaves</a>
+        <a href="admin.html" class="nav-link active">⚙️ Admin</a>
+    </div>
+    <div class="navbar-user">
+        <span class="user-badge" id="user-email"></span>
+        <span class="admin-badge">ADMIN</span>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
+    </div>
+</nav>
+
+<div class="main-content">
+
+    <!-- Make admin -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">👑 promote user to admin</div>
+        </div>
+        <div class="alert alert-error" id="admin-error" style="display:none">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-content"><div id="admin-error-msg"></div></div>
+        </div>
+        <div class="alert alert-success" id="admin-success" style="display:none">
+            <span class="alert-icon">✅</span>
+            <div class="alert-content"><div id="admin-success-msg"></div></div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-end">
+            <div class="form-group" style="margin:0;flex:1">
+                <label>user id to promote <span style="color:#ef4444">*</span></label>
+                <input type="number" id="promote-id" placeholder="enter user id" min="1">
+            </div>
+            <button class="btn btn-warning" onclick="makeAdmin()">promote to admin</button>
+        </div>
+    </div>
+
+    <!-- Pending leaves for admin -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">📋 pending leave requests</div>
+            <span class="badge badge-yellow" id="pending-count">loading...</span>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>id</th>
+                        <th>employee</th>
+                        <th>type</th>
+                        <th>from</th>
+                        <th>to</th>
+                        <th>reason</th>
+                        <th>actions</th>
+                    </tr>
+                </thead>
+                <tbody id="pending-table">
+                    <tr><td colspan="7" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    requireAdmin();
+    document.getElementById('user-email').textContent = getCurrentEmail();
+
+    async function makeAdmin() {
+        const id = document.getElementById('promote-id').value;
+        document.getElementById('admin-error').style.display = 'none';
+        document.getElementById('admin-success').style.display = 'none';
+
+        if (!id || parseInt(id) < 1) {
+            document.getElementById('admin-error-msg').textContent = 'please enter a valid user id';
+            document.getElementById('admin-error').style.display = 'flex';
+            return;
+        }
+
+        const res = await fetch(`http://localhost:8000/auth/make-admin/${id}`, {
+            method: 'POST', headers: authHeaders()
+        });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('admin-success-msg').textContent = data.message;
+            document.getElementById('admin-success').style.display = 'flex';
+        } else {
+            document.getElementById('admin-error-msg').textContent = data.detail || 'failed';
+            document.getElementById('admin-error').style.display = 'flex';
+        }
+    }
+
+    async function loadPendingLeaves() {
+        const res = await fetch('http://localhost:8000/leaves/?status=pending&limit=50', {
+            headers: authHeaders()
+        });
+        const data = await res.json();
+        document.getElementById('pending-count').textContent = `${data.length} pending`;
+
+        if (!data.length) {
+            document.getElementById('pending-table').innerHTML =
+                `<tr><td colspan="7"><div class="empty-state"><div class="icon">✅</div><p>no pending leaves</p></div></td></tr>`;
+            return;
+        }
+
+        document.getElementById('pending-table').innerHTML = data.map(l => `
+            <tr>
+                <td style="color:#64748b">#${l.id}</td>
+                <td>emp #${l.employee_id}</td>
+                <td><span class="badge badge-blue">${l.leave_type}</span></td>
+                <td>${l.start_date}</td>
+                <td>${l.end_date}</td>
+                <td style="color:#64748b">${l.reason || '—'}</td>
+                <td>
+                    <button class="btn btn-success btn-sm" onclick="updateLeave(${l.id},'approved')">approve</button>
+                    <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="updateLeave(${l.id},'rejected')">reject</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function updateLeave(id, status) {
+        const res = await fetch(`http://localhost:8000/leaves/${id}`, {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify({status})
+        });
+        if (res.ok) loadPendingLeaves();
+    }
+
+    loadPendingLeaves();
+</script>
+</body>
+</html>

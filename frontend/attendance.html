@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance — EMS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <div class="navbar-nav">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="employees.html" class="nav-link">Employees</a>
+        <a href="departments.html" class="nav-link">Departments</a>
+        <a href="attendance.html" class="nav-link active">Attendance</a>
+        <a href="leaves.html" class="nav-link">Leaves</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+    </div>
+    <div class="navbar-user">
+        <span class="user-badge" id="user-email"></span>
+        <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
+    </div>
+</nav>
+
+<div class="main-content">
+
+    <!-- Mark attendance card -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">✅ mark attendance — today only</div>
+            <span style="font-size:13px;color:#64748b" id="today-date"></span>
+        </div>
+
+        <div class="alert alert-error" id="mark-error">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-content">
+                <ul class="alert-list" id="mark-error-list"></ul>
+            </div>
+        </div>
+        <div class="alert alert-success" id="mark-success">
+            <span class="alert-icon">✅</span>
+            <div class="alert-content"><div id="mark-success-msg"></div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+            <div class="form-group">
+                <label>employee id <span style="color:#ef4444">*</span></label>
+                <input type="number" id="att-empid" placeholder="employee id" min="1">
+                <div class="field-error" id="att-empid-error"></div>
+            </div>
+            <div class="form-group">
+                <label>check-in time <span style="color:#ef4444">*</span></label>
+                <input type="time" id="att-checkin">
+                <div class="field-error" id="att-checkin-error"></div>
+            </div>
+            <div class="form-group">
+                <label>status <span style="color:#ef4444">*</span></label>
+                <select id="att-status">
+                    <option value="present">present</option>
+                    <option value="absent">absent</option>
+                    <option value="half_day">half day</option>
+                    <option value="work_from_home">work from home</option>
+                    <option value="on_leave">on leave</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn btn-primary" style="width:auto" onclick="markAttendance()">mark attendance</button>
+    </div>
+
+    <!-- Update checkout -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">🕕 update check-out</div>
+        </div>
+        <div class="alert alert-error" id="checkout-error" style="display:none">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-content"><div id="checkout-error-msg"></div></div>
+        </div>
+        <div class="alert alert-success" id="checkout-success" style="display:none">
+            <span class="alert-icon">✅</span>
+            <div class="alert-content"><div id="checkout-success-msg"></div></div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <div class="form-group" style="margin:0">
+                <label>attendance id <span style="color:#ef4444">*</span></label>
+                <input type="number" id="checkout-id" placeholder="attendance record id" min="1">
+            </div>
+            <div class="form-group" style="margin:0">
+                <label>check-out time <span style="color:#ef4444">*</span></label>
+                <input type="time" id="att-checkout">
+            </div>
+            <button class="btn btn-warning" onclick="updateCheckout()">update check-out</button>
+        </div>
+    </div>
+
+    <!-- View records -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">📋 attendance records</div>
+        </div>
+        <div class="search-bar">
+            <input type="number" id="filter-emp" placeholder="filter by employee id">
+            <input type="date" id="filter-date">
+            <button class="btn btn-secondary btn-sm" onclick="loadAttendance()">filter</button>
+            <button class="btn btn-secondary btn-sm" onclick="clearFilter()">clear</button>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>id</th>
+                        <th>employee</th>
+                        <th>date</th>
+                        <th>check-in</th>
+                        <th>check-out</th>
+                        <th>status</th>
+                        ${isAdmin ? '<th>actions</th>' : ''}
+                    </tr>
+                </thead>
+                <tbody id="att-table">
+                    <tr><td colspan="7" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    requireLogin();
+    document.getElementById('user-email').textContent = getCurrentEmail();
+    if (isAdmin()) {
+        document.getElementById('admin-badge').style.display = 'inline';
+        document.getElementById('admin-link').style.display = 'inline';
+    }
+
+    document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+    // Set current time as default check-in
+    const now = new Date();
+    document.getElementById('att-checkin').value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+    async function markAttendance() {
+        const empId = document.getElementById('att-empid').value;
+        const checkIn = document.getElementById('att-checkin').value;
+        const status = document.getElementById('att-status').value;
+        const errors = [];
+
+        document.getElementById('att-empid').classList.remove('error');
+        document.getElementById('att-empid-error').classList.remove('show');
+        document.getElementById('att-checkin').classList.remove('error');
+        document.getElementById('att-checkin-error').classList.remove('show');
+        document.getElementById('mark-error').classList.remove('show');
+        document.getElementById('mark-success').classList.remove('show');
+
+        if (!empId || parseInt(empId) < 1) {
+            document.getElementById('att-empid').classList.add('error');
+            document.getElementById('att-empid-error').textContent = 'employee id is required';
+            document.getElementById('att-empid-error').classList.add('show');
+            errors.push('employee id is required');
+        }
+        if (!checkIn) {
+            document.getElementById('att-checkin').classList.add('error');
+            document.getElementById('att-checkin-error').textContent = 'check-in time is required';
+            document.getElementById('att-checkin-error').classList.add('show');
+            errors.push('check-in time is required');
+        }
+
+        if (errors.length > 0) {
+            document.getElementById('mark-error-list').innerHTML = errors.map(e => `<li>${e}</li>`).join('');
+            document.getElementById('mark-error').classList.add('show');
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        try {
+            const res = await fetch('http://localhost:8000/attendance/', {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({
+                    employee_id: parseInt(empId),
+                    date: today,
+                    check_in: checkIn + ':00',
+                    status
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('mark-success-msg').textContent = `attendance marked successfully! record id: ${data.id}`;
+                document.getElementById('mark-success').classList.add('show');
+                loadAttendance();
+            } else {
+                document.getElementById('mark-error-list').innerHTML = `<li>${data.detail}</li>`;
+                document.getElementById('mark-error').classList.add('show');
+            }
+        } catch(e) {
+            document.getElementById('mark-error-list').innerHTML = '<li>connection failed</li>';
+            document.getElementById('mark-error').classList.add('show');
+        }
+    }
+
+    async function updateCheckout() {
+        const id = document.getElementById('checkout-id').value;
+        const time = document.getElementById('att-checkout').value;
+
+        document.getElementById('checkout-error').style.display = 'none';
+        document.getElementById('checkout-success').style.display = 'none';
+
+        if (!id || !time) {
+            document.getElementById('checkout-error-msg').textContent = 'attendance id and check-out time are required';
+            document.getElementById('checkout-error').style.display = 'flex';
+            return;
+        }
+
+        const res = await fetch(`http://localhost:8000/attendance/${id}`, {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify({check_out: time + ':00'})
+        });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('checkout-success-msg').textContent = 'check-out updated successfully';
+            document.getElementById('checkout-success').style.display = 'flex';
+            loadAttendance();
+        } else {
+            document.getElementById('checkout-error-msg').textContent = data.detail || 'update failed';
+            document.getElementById('checkout-error').style.display = 'flex';
+        }
+    }
+
+    async function loadAttendance() {
+        const emp = document.getElementById('filter-emp').value;
+        const date = document.getElementById('filter-date').value;
+        let url = 'http://localhost:8000/attendance/?';
+        if (emp) url += `employee_id=${emp}&`;
+        if (date) url += `date_filter=${date}`;
+
+        const res = await fetch(url, {headers: authHeaders()});
+        const data = await res.json();
+
+        const statusColors = {
+            present: 'badge-green',
+            absent: 'badge-red',
+            half_day: 'badge-yellow',
+            work_from_home: 'badge-blue',
+            on_leave: 'badge-gray'
+        };
+
+        if (!data.length) {
+            document.getElementById('att-table').innerHTML =
+                `<tr><td colspan="7"><div class="empty-state"><div class="icon">📋</div><p>no records found</p></div></td></tr>`;
+            return;
+        }
+
+        document.getElementById('att-table').innerHTML = data.map(a => `
+            <tr>
+                <td style="color:#64748b">#${a.id}</td>
+                <td>emp #${a.employee_id}</td>
+                <td>${a.date}</td>
+                <td>${a.check_in || '—'}</td>
+                <td>${a.check_out || '<span style="color:#f59e0b">pending</span>'}</td>
+                <td><span class="badge ${statusColors[a.status] || 'badge-gray'}">${a.status.replace('_',' ')}</span></td>
+                ${isAdmin() ? `<td><button class="btn btn-danger btn-sm" onclick="deleteAtt(${a.id})">delete</button></td>` : '<td></td>'}
+            </tr>
+        `).join('');
+    }
+
+    function clearFilter() {
+        document.getElementById('filter-emp').value = '';
+        document.getElementById('filter-date').value = '';
+        loadAttendance();
+    }
+
+    async function deleteAtt(id) {
+        if (!confirm('delete this attendance record?')) return;
+        const res = await fetch(`http://localhost:8000/attendance/${id}`, {
+            method: 'DELETE', headers: authHeaders()
+        });
+        if (res.ok) loadAttendance();
+    }
+
+    loadAttendance();
+</script>
+</body>
+</html>

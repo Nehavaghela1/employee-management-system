@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Departments — EMS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <div class="navbar-nav">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="employees.html" class="nav-link">Employees</a>
+        <a href="departments.html" class="nav-link active">Departments</a>
+        <a href="attendance.html" class="nav-link">Attendance</a>
+        <a href="leaves.html" class="nav-link">Leaves</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+    </div>
+    <div class="navbar-user">
+        <span class="user-badge" id="user-email"></span>
+        <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
+    </div>
+</nav>
+
+<div class="main-content">
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">🏛️ departments</div>
+            <button class="btn btn-primary btn-sm" onclick="openCreateModal()">+ add department</button>
+        </div>
+
+        <div class="alert alert-success" id="success-msg" style="display:none">
+            <span class="alert-icon">✅</span>
+            <div class="alert-content"><div id="success-text"></div></div>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>id</th>
+                        <th>name</th>
+                        <th>description</th>
+                        <th>created</th>
+                        <th>actions</th>
+                    </tr>
+                </thead>
+                <tbody id="dept-table">
+                    <tr><td colspan="5" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+        <div class="modal-header">
+            <div class="modal-title" id="modal-title">add department</div>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+
+        <div class="alert alert-error" id="modal-error">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-content">
+                <div class="alert-title">please fix the following:</div>
+                <ul class="alert-list" id="modal-error-list"></ul>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>department name <span style="color:#ef4444">*</span></label>
+            <input type="text" id="f-name" placeholder="e.g. engineering">
+            <div class="field-error" id="f-name-error"></div>
+        </div>
+
+        <div class="form-group">
+            <label>description</label>
+            <input type="text" id="f-desc" placeholder="brief description (optional)">
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+            <button class="btn btn-secondary" onclick="closeModal()">cancel</button>
+            <button class="btn btn-primary" id="modal-submit" onclick="submitDept()">save</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    requireLogin();
+    document.getElementById('user-email').textContent = getCurrentEmail();
+    if (isAdmin()) {
+        document.getElementById('admin-badge').style.display = 'inline';
+        document.getElementById('admin-link').style.display = 'inline';
+    }
+
+    let editingId = null;
+
+    function showSuccess(msg) {
+        document.getElementById('success-text').textContent = msg;
+        document.getElementById('success-msg').style.display = 'flex';
+        setTimeout(() => document.getElementById('success-msg').style.display = 'none', 3000);
+    }
+
+    async function loadDepartments() {
+        const res = await fetch('http://localhost:8000/departments/?limit=100');
+        const data = await res.json();
+
+        if (!data.length) {
+            document.getElementById('dept-table').innerHTML =
+                `<tr><td colspan="5"><div class="empty-state"><div class="icon">🏛️</div><p>no departments yet</p></div></td></tr>`;
+            return;
+        }
+
+        document.getElementById('dept-table').innerHTML = data.map(d => `
+            <tr>
+                <td style="color:#64748b">#${d.id}</td>
+                <td><strong>${d.name}</strong></td>
+                <td style="color:#64748b">${d.description || '—'}</td>
+                <td style="color:#64748b">${new Date(d.created_at).toLocaleDateString()}</td>
+                <td>
+                    ${isAdmin() ? `
+                    <button class="btn btn-warning btn-sm" onclick="openEditModal(${d.id}, '${d.name}', '${d.description || ''}')">edit</button>
+                    <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="deleteDept(${d.id})">delete</button>
+                    ` : '<span style="color:#64748b;font-size:13px">view only</span>'}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function openCreateModal() {
+        editingId = null;
+        document.getElementById('modal-title').textContent = 'add department';
+        document.getElementById('modal-submit').textContent = 'save';
+        document.getElementById('f-name').value = '';
+        document.getElementById('f-desc').value = '';
+        document.getElementById('modal-error').classList.remove('show');
+        document.getElementById('modal').classList.add('show');
+    }
+
+    function openEditModal(id, name, desc) {
+        editingId = id;
+        document.getElementById('modal-title').textContent = 'edit department';
+        document.getElementById('modal-submit').textContent = 'update';
+        document.getElementById('f-name').value = name;
+        document.getElementById('f-desc').value = desc;
+        document.getElementById('modal-error').classList.remove('show');
+        document.getElementById('modal').classList.add('show');
+    }
+
+    function closeModal() {
+        document.getElementById('modal').classList.remove('show');
+    }
+
+    async function submitDept() {
+        const name = document.getElementById('f-name').value.trim();
+        const desc = document.getElementById('f-desc').value.trim();
+
+        document.getElementById('f-name').classList.remove('error');
+        document.getElementById('f-name-error').classList.remove('show');
+        document.getElementById('modal-error').classList.remove('show');
+
+        if (!name) {
+            document.getElementById('f-name').classList.add('error');
+            document.getElementById('f-name-error').textContent = 'department name is required';
+            document.getElementById('f-name-error').classList.add('show');
+            document.getElementById('modal-error-list').innerHTML = '<li>department name is required</li>';
+            document.getElementById('modal-error').classList.add('show');
+            return;
+        }
+
+        const btn = document.getElementById('modal-submit');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span>';
+
+        const body = {name};
+        if (desc) body.description = desc;
+
+        const url = editingId
+            ? `http://localhost:8000/departments/${editingId}`
+            : 'http://localhost:8000/departments/';
+        const method = editingId ? 'PUT' : 'POST';
+
+        try {
+            const res = await fetch(url, {
+                method,
+                headers: authHeaders(),
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                closeModal();
+                loadDepartments();
+                showSuccess(editingId ? 'department updated successfully' : 'department created successfully');
+            } else {
+                document.getElementById('modal-error-list').innerHTML = `<li>${data.detail || 'something went wrong'}</li>`;
+                document.getElementById('modal-error').classList.add('show');
+            }
+        } catch(e) {
+            document.getElementById('modal-error-list').innerHTML = '<li>connection failed</li>';
+            document.getElementById('modal-error').classList.add('show');
+        }
+
+        btn.disabled = false;
+        btn.textContent = editingId ? 'update' : 'save';
+    }
+
+    async function deleteDept(id) {
+        if (!confirm('delete this department? employees must be reassigned first.')) return;
+        const res = await fetch(`http://localhost:8000/departments/${id}`, {
+            method: 'DELETE',
+            headers: authHeaders()
+        });
+        const data = await res.json();
+        if (res.ok) { loadDepartments(); showSuccess('department deleted'); }
+        else alert(data.detail || 'delete failed');
+    }
+
+    loadDepartments();
+</script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaves — EMS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <div class="navbar-nav">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="employees.html" class="nav-link">Employees</a>
+        <a href="departments.html" class="nav-link">Departments</a>
+        <a href="attendance.html" class="nav-link">Attendance</a>
+        <a href="leaves.html" class="nav-link active">Leaves</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+    </div>
+    <div class="navbar-user">
+        <span class="user-badge" id="user-email"></span>
+        <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
+    </div>
+</nav>
+
+<div class="main-content">
+
+    <!-- Request leave -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">📋 request leave</div>
+        </div>
+
+        <div class="alert alert-error" id="leave-error">
+            <span class="alert-icon">⚠️</span>
+            <div class="alert-content">
+                <div class="alert-title">please fix the following:</div>
+                <ul class="alert-list" id="leave-error-list"></ul>
+            </div>
+        </div>
+        <div class="alert alert-success" id="leave-success">
+            <span class="alert-icon">✅</span>
+            <div class="alert-content"><div id="leave-success-msg"></div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+            <div class="form-group">
+                <label>employee id <span style="color:#ef4444">*</span></label>
+                <input type="number" id="l-empid" placeholder="your employee id" min="1">
+                <div class="field-error" id="l-empid-error"></div>
+            </div>
+            <div class="form-group">
+                <label>leave type <span style="color:#ef4444">*</span></label>
+                <select id="l-type">
+                    <option value="sick">sick leave</option>
+                    <option value="casual">casual leave</option>
+                    <option value="annual">annual leave</option>
+                    <option value="maternity">maternity leave</option>
+                    <option value="paternity">paternity leave</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>start date <span style="color:#ef4444">*</span></label>
+                <input type="date" id="l-start">
+                <div class="field-error" id="l-start-error"></div>
+            </div>
+            <div class="form-group">
+                <label>end date <span style="color:#ef4444">*</span></label>
+                <input type="date" id="l-end">
+                <div class="field-error" id="l-end-error"></div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>reason</label>
+            <input type="text" id="l-reason" placeholder="brief reason (optional)">
+        </div>
+        <button class="btn btn-primary" style="width:auto" onclick="requestLeave()">submit request</button>
+    </div>
+
+    <!-- Leave records -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">📂 leave requests</div>
+        </div>
+        <div class="search-bar">
+            <input type="number" id="filter-emp" placeholder="filter by employee id">
+            <select id="filter-status">
+                <option value="">all status</option>
+                <option value="pending">pending</option>
+                <option value="approved">approved</option>
+                <option value="rejected">rejected</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="loadLeaves()">filter</button>
+            <button class="btn btn-secondary btn-sm" onclick="clearFilter()">clear</button>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>id</th>
+                        <th>employee</th>
+                        <th>type</th>
+                        <th>from</th>
+                        <th>to</th>
+                        <th>reason</th>
+                        <th>status</th>
+                        <th>actions</th>
+                    </tr>
+                </thead>
+                <tbody id="leaves-table">
+                    <tr><td colspan="8" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    requireLogin();
+    document.getElementById('user-email').textContent = getCurrentEmail();
+    if (isAdmin()) {
+        document.getElementById('admin-badge').style.display = 'inline';
+        document.getElementById('admin-link').style.display = 'inline';
+    }
+
+    // Set min date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('l-start').min = today;
+    document.getElementById('l-end').min = today;
+
+    document.getElementById('l-start').addEventListener('change', function() {
+        document.getElementById('l-end').min = this.value;
+    });
+
+    async function requestLeave() {
+        const empId = document.getElementById('l-empid').value;
+        const type = document.getElementById('l-type').value;
+        const start = document.getElementById('l-start').value;
+        const end = document.getElementById('l-end').value;
+        const reason = document.getElementById('l-reason').value.trim();
+        const errors = [];
+
+        // Reset errors
+        ['l-empid', 'l-start', 'l-end'].forEach(id => {
+            document.getElementById(id).classList.remove('error');
+            document.getElementById(`${id}-error`).classList.remove('show');
+        });
+        document.getElementById('leave-error').classList.remove('show');
+        document.getElementById('leave-success').classList.remove('show');
+
+        if (!empId || parseInt(empId) < 1) {
+            document.getElementById('l-empid').classList.add('error');
+            document.getElementById('l-empid-error').textContent = 'employee id is required';
+            document.getElementById('l-empid-error').classList.add('show');
+            errors.push('employee id is required');
+        }
+        if (!start) {
+            document.getElementById('l-start').classList.add('error');
+            document.getElementById('l-start-error').textContent = 'start date is required';
+            document.getElementById('l-start-error').classList.add('show');
+            errors.push('start date is required');
+        }
+        if (!end) {
+            document.getElementById('l-end').classList.add('error');
+            document.getElementById('l-end-error').textContent = 'end date is required';
+            document.getElementById('l-end-error').classList.add('show');
+            errors.push('end date is required');
+        }
+        if (start && end && end < start) {
+            document.getElementById('l-end').classList.add('error');
+            document.getElementById('l-end-error').textContent = 'end date must be after start date';
+            document.getElementById('l-end-error').classList.add('show');
+            errors.push('end date must be after start date');
+        }
+        if (start && start < today) {
+            document.getElementById('l-start').classList.add('error');
+            document.getElementById('l-start-error').textContent = 'cannot apply for past dates';
+            document.getElementById('l-start-error').classList.add('show');
+            errors.push('cannot apply for past dates');
+        }
+
+        if (errors.length > 0) {
+            document.getElementById('leave-error-list').innerHTML = errors.map(e => `<li>${e}</li>`).join('');
+            document.getElementById('leave-error').classList.add('show');
+            return;
+        }
+
+        const body = {employee_id: parseInt(empId), leave_type: type, start_date: start, end_date: end};
+        if (reason) body.reason = reason;
+
+        try {
+            const res = await fetch('http://localhost:8000/leaves/', {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('leave-success-msg').textContent = `leave request submitted. status: ${data.status}`;
+                document.getElementById('leave-success').classList.add('show');
+                loadLeaves();
+            } else {
+                document.getElementById('leave-error-list').innerHTML = `<li>${data.detail}</li>`;
+                document.getElementById('leave-error').classList.add('show');
+            }
+        } catch(e) {
+            document.getElementById('leave-error-list').innerHTML = '<li>connection failed</li>';
+            document.getElementById('leave-error').classList.add('show');
+        }
+    }
+
+    async function loadLeaves() {
+        const emp = document.getElementById('filter-emp').value;
+        const status = document.getElementById('filter-status').value;
+        let url = 'http://localhost:8000/leaves/?';
+        if (emp) url += `employee_id=${emp}&`;
+        if (status) url += `status=${status}`;
+
+        const res = await fetch(url, {headers: authHeaders()});
+        const data = await res.json();
+
+        const statusColors = {pending: 'badge-yellow', approved: 'badge-green', rejected: 'badge-red'};
+
+        if (!data.length) {
+            document.getElementById('leaves-table').innerHTML =
+                `<tr><td colspan="8"><div class="empty-state"><div class="icon">📋</div><p>no leave requests found</p></div></td></tr>`;
+            return;
+        }
+
+        document.getElementById('leaves-table').innerHTML = data.map(l => `
+            <tr>
+                <td style="color:#64748b">#${l.id}</td>
+                <td>emp #${l.employee_id}</td>
+                <td><span class="badge badge-blue">${l.leave_type}</span></td>
+                <td>${l.start_date}</td>
+                <td>${l.end_date}</td>
+                <td style="color:#64748b">${l.reason || '—'}</td>
+                <td><span class="badge ${statusColors[l.status]}">${l.status}</span></td>
+                <td>
+                    ${isAdmin() && l.status === 'pending' ? `
+                        <button class="btn btn-success btn-sm" onclick="updateStatus(${l.id},'approved')">approve</button>
+                        <button class="btn btn-danger btn-sm" style="margin-left:4px" onclick="updateStatus(${l.id},'rejected')">reject</button>
+                    ` : ''}
+                    ${l.status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="cancelLeave(${l.id})">cancel</button>` : ''}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function updateStatus(id, status) {
+        const res = await fetch(`http://localhost:8000/leaves/${id}`, {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify({status})
+        });
+        if (res.ok) loadLeaves();
+        else { const d = await res.json(); alert(d.detail || 'failed'); }
+    }
+
+    async function cancelLeave(id) {
+        if (!confirm('cancel this leave request?')) return;
+        const res = await fetch(`http://localhost:8000/leaves/${id}`, {
+            method: 'DELETE', headers: authHeaders()
+        });
+        if (res.ok) loadLeaves();
+        else { const d = await res.json(); alert(d.detail || 'failed'); }
+    }
+
+    function clearFilter() {
+        document.getElementById('filter-emp').value = '';
+        document.getElementById('filter-status').value = '';
+        loadLeaves();
+    }
+
+    loadLeaves();
+</script>
+</body>
+</html>

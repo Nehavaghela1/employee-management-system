@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — EMS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <div class="navbar-nav">
+        <a href="dashboard.html" class="nav-link active">Dashboard</a>
+        <a href="employees.html" class="nav-link">Employees</a>
+        <a href="departments.html" class="nav-link">Departments</a>
+        <a href="attendance.html" class="nav-link">Attendance</a>
+        <a href="leaves.html" class="nav-link">Leaves</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+    </div>
+    <div class="navbar-user">
+        <span class="user-badge" id="user-email"></span>
+        <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
+    </div>
+</nav>
+
+<div class="main-content">
+    <h2 style="margin-bottom:20px; color:#1e293b">good morning 👋 <span id="greeting-name"></span></h2>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon blue">👥</div>
+            <div class="stat-info">
+                <h3 id="total-employees">—</h3>
+                <p>total employees</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green">🏛️</div>
+            <div class="stat-info">
+                <h3 id="total-departments">—</h3>
+                <p>departments</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon yellow">📋</div>
+            <div class="stat-info">
+                <h3 id="pending-leaves">—</h3>
+                <p>pending leaves</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon green">✅</div>
+            <div class="stat-info">
+                <h3 id="present-today">—</h3>
+                <p>present today</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon blue">📅</div>
+            <div class="stat-info">
+                <h3 id="approved-leaves">—</h3>
+                <p>approved leaves</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon red">🗂️</div>
+            <div class="stat-info">
+                <h3 id="total-attendance">—</h3>
+                <p>attendance records</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">⚡ quick actions</div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap">
+            <a href="attendance.html" class="btn btn-primary">✅ mark attendance</a>
+            <a href="leaves.html" class="btn btn-success">📋 request leave</a>
+            <a href="employees.html" class="btn btn-secondary">👥 view employees</a>
+            <a href="departments.html" class="btn btn-secondary">🏛️ departments</a>
+        </div>
+    </div>
+</div>
+
+<script src="js/auth.js"></script>
+<script>
+    requireLogin();
+
+    // Set user info
+    const email = getCurrentEmail();
+    document.getElementById('user-email').textContent = email;
+    document.getElementById('greeting-name').textContent = email.split('@')[0];
+
+    if (isAdmin()) {
+        document.getElementById('admin-badge').style.display = 'inline';
+        document.getElementById('admin-link').style.display = 'inline';
+    }
+
+    // Load dashboard stats
+    async function loadDashboard() {
+        try {
+            const res = await fetch('http://localhost:8000/dashboard/', {
+                headers: {'Authorization': `Bearer ${getToken()}`}
+            });
+            if (res.status === 401) { logout(); return; }
+            const data = await res.json();
+
+            document.getElementById('total-employees').textContent = data.total_employees;
+            document.getElementById('total-departments').textContent = data.total_departments;
+            document.getElementById('pending-leaves').textContent = data.pending_leaves;
+            document.getElementById('present-today').textContent = data.present_today;
+            document.getElementById('approved-leaves').textContent = data.approved_leaves;
+            document.getElementById('total-attendance').textContent = data.total_attendance_records;
+        } catch(e) {
+            console.error('dashboard load failed');
+        }
+    }
+
+    loadDashboard();
+</script>
+</body>
+</html>
