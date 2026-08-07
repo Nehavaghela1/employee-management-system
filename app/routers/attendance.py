@@ -1,16 +1,16 @@
-from fastapi import APIRouter,Depends ,HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing  import List ,Optional
-from datetime import datetime,date
+from typing import List, Optional
+from datetime import datetime, date, timedelta
 from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.employee import Employee
-from app.schemas.attendance import AttendanceCreate,AttendanceUpdate,AttendanceResponse
-from datetime import datetime, date, timedelta
+from app.schemas.attendance import AttendanceCreate, AttendanceUpdate, AttendanceResponse
 from app.utils.auth import get_current_user, get_admin_user
 from app.models.user import User
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
+
 @router.get("/", response_model=List[AttendanceResponse])
 def get_attendance(
     employee_id: Optional[int] = None,
@@ -32,28 +32,43 @@ def mark_attendance(
 ):
     emp = db.query(Employee).filter(Employee.id == att.employee_id).first()
     if not emp:
-        raise HTTPException(status_code=404, detail="Employee not found")
+        raise HTTPException(status_code=404, detail="employee not found")
+
+    if not current_user.is_admin:
+        linked_emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
+        if not linked_emp:
+            raise HTTPException(status_code=403, detail="no employee record linked to your account. contact admin.")
+        if linked_emp.id != att.employee_id:
+            raise HTTPException(status_code=403, detail="you can only mark your own attendance")
+
     valid_statuses = ["present", "absent", "half_day", "work_from_home", "on_leave"]
-    if att.status and att.status not in valid_statuses:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Status must be one of: {valid_statuses}"
-        )        
-    if att.date != date.today():
-        raise HTTPException(status_code=400, detail="Can only mark attendance for today")
-    if att.date == date.today():
-        current_time = datetime.now().time()
-        if att.check_in and att.check_in > current_time:
-            raise HTTPException(400, "Cannot mark future check-in time")
+    if att.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"status must be one of: {valid_statuses}")
+
+    today = date.today()
+    if att.date != today:
+        raise HTTPException(status_code=400, detail="attendance can only be marked for today")
+
+    if att.check_in:
+        now = datetime.now().time()
+        now_dt = datetime.now()
+        checkin_dt = datetime.combine(today, att.check_in)
+        diff_minutes = (now_dt - checkin_dt).total_seconds() / 60
+        if att.check_in > now:
+            raise HTTPException(status_code=400, detail="check-in time cannot be in the future")
+        if not current_user.is_admin and diff_minutes > 15:
+            raise HTTPException(status_code=400, detail="check-in cannot be more than 15 minutes in the past")
+
     existing = db.query(Attendance).filter(
         Attendance.employee_id == att.employee_id,
-        Attendance.date == att.date
+        Attendance.date == today
     ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Attendance already marked for this date")
+        raise HTTPException(status_code=400, detail="attendance already marked for today")
+
     new_att = Attendance(
         employee_id=att.employee_id,
-        date=att.date,
+        date=today,
         check_in=att.check_in,
         check_out=att.check_out,
         status=att.status
@@ -67,7 +82,7 @@ def mark_attendance(
 def get_attendance_record(att_id: int, db: Session = Depends(get_db)):
     att = db.query(Attendance).filter(Attendance.id == att_id).first()
     if not att:
-        raise HTTPException(status_code=404, detail="Attendance record not found")
+        raise HTTPException(status_code=404, detail="attendance record not found")
     return att
 
 @router.put("/{att_id}", response_model=AttendanceResponse)
@@ -79,18 +94,33 @@ def update_attendance(
 ):
     att = db.query(Attendance).filter(Attendance.id == att_id).first()
     if not att:
-        raise HTTPException(status_code=404, detail="Attendance record not found")
-    
-    # owner check — only admin or the employee themselves
-    if not current_user.is_admin and att.employee_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not authorized to update this attendance")
-    
+        raise HTTPException(status_code=404, detail="attendance record not found")
+
+    if not current_user.is_admin:
+        linked_emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
+        if not linked_emp or linked_emp.id != att.employee_id:
+            raise HTTPException(status_code=403, detail="not authorized to update this attendance")
+
+    if att_data.check_out:
+        if not current_user.is_admin:
+            now = datetime.now().time()
+            if att_data.check_out > now:
+                raise HTTPException(status_code=400, detail="check-out time cannot be in the future")
+        if att.check_in and att_data.check_out <= att.check_in:
+            raise HTTPException(status_code=400, detail="check-out must be after check-in")
     if att_data.check_out and att.check_in:
-        if att_data.check_out <= att.check_in:
-            raise HTTPException(status_code=400, detail="Check out time must be after check in time")
+        checkin_dt = datetime.combine(date.today(), att.check_in)
+        checkout_dt = datetime.combine(date.today(), att_data.check_out)
+        diff_hours = (checkout_dt - checkin_dt).total_seconds() / 3600
+        if diff_hours < 1 and not current_user.is_admin:
+            raise HTTPException(status_code=400, detail="minimum 1 hour required before checkout")
+
     if att_data.check_in: att.check_in = att_data.check_in
     if att_data.check_out: att.check_out = att_data.check_out
-    if att_data.status: att.status = att_data.status
+    if att_data.status:
+        if not current_user.is_admin:
+            raise HTTPException(status_code=403, detail="only admin can change attendance status")
+        att.status = att_data.status
     db.commit()
     db.refresh(att)
     return att
@@ -103,7 +133,7 @@ def delete_attendance(
 ):
     att = db.query(Attendance).filter(Attendance.id == att_id).first()
     if not att:
-        raise HTTPException(status_code=404, detail="Attendance record not found")
+        raise HTTPException(status_code=404, detail="attendance record not found")
     db.delete(att)
     db.commit()
-    return {"message": "Attendance deleted successfully"}
+    return {"message": "attendance deleted successfully"}

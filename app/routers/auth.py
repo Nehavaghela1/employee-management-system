@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserRegister, UserLogin, UserResponse, TokenResponse
-from app.utils.auth import hash_password, verify_password, create_access_token
+from app.utils.auth import hash_password, verify_password, create_access_token, get_admin_user, get_current_user
 from datetime import timedelta
 import logging
 
@@ -65,6 +65,10 @@ def make_admin(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if user.is_admin:
+        raise HTTPException(status_code=400, detail="User is already an admin")
     user.is_admin = True
     db.commit()
+    db.refresh(user)
+    logger.info(f"User promoted to admin: {user.email} by {current_user.email}")
     return {"message": f"{user.email} is now admin"}

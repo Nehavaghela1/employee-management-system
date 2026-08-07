@@ -52,9 +52,14 @@ def update_department(
     if not dept:
         raise HTTPException(status_code=404, detail="Department not found")
     if dept_data.name:
+        if dept_data.name == dept.name:
+            raise HTTPException(status_code=400, detail="New name is same as current name")
         dept.name = dept_data.name
-    if dept_data.description:
-        dept.description = dept_data.description
+    if dept_data.description is not None:
+        if len(dept_data.description.strip()) == 0:
+            dept.description = None
+        else:
+            dept.description = dept_data.description
     db.commit()
     db.refresh(dept)
     return dept

@@ -75,6 +75,15 @@
     </div>
     <button class="btn btn-primary" onclick="login()">Login</button>
     <button class="btn btn-warning" onclick="logout()">Logout</button>
+<div id="login-result" class="result hidden"></div>
+
+<hr>
+<h3>Make Admin (Admin only)</h3>
+<div class="row">
+    <input type="number" id="make-admin-id" placeholder="User ID to promote">
+    <button class="btn btn-warning" onclick="makeAdmin()">Make Admin</button>
+</div>
+<div id="make-admin-result" class="result hidden"></div>
     <div id="login-result" class="result hidden"></div>
 </div>
 
@@ -341,6 +350,17 @@ async function apiCall(url, options = {}) {
 function updateTokenStatus() {
     const el = document.getElementById('token-display');
     if (token) {
+        // check if token expired
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const expiry = payload.exp * 1000;
+            if (Date.now() > expiry) {
+                token = '';
+                el.textContent = '❌ Session expired — please login again';
+                el.className = 'token-status no-token';
+                return;
+            }
+        } catch(e) {}
         el.textContent = '✅ Logged in — token active';
         el.className = 'token-status';
     } else {
@@ -360,6 +380,18 @@ function logout() {
     token = '';
     updateTokenStatus();
     showResult('login-result', {message: 'Logged out successfully'});
+}
+async function makeAdmin() {
+    const id = document.getElementById('make-admin-id').value;
+    try {
+        const res = await fetch(`${API}/auth/make-admin/${id}`, {
+            method: 'POST',
+            headers: authHeaders()
+        });
+        showResult('make-admin-result', await res.json(), !res.ok);
+    } catch(e) {
+        showResult('make-admin-result', {error: e.message}, true);
+    }
 }
 
 async function loadEmpReference(elementId) {
@@ -445,11 +477,16 @@ async function getDepartments() {
 
 async function getDepartmentById() {
     const id = document.getElementById('dept-get-id').value;
+    if (!id) {
+        showResult('dept-get-result', {error: 'Please enter a department ID'}, true);
+        return;
+    }
     try {
         const res = await fetch(`${API}/departments/${id}`);
         showResult('dept-get-result', await res.json(), !res.ok);
     } catch(e) { showResult('dept-get-result', {error: e.message}, true); }
 }
+
 
 async function createDepartment() {
     const body = {
@@ -506,11 +543,16 @@ async function getEmployees() {
 
 async function getEmployeeById() {
     const id = document.getElementById('emp-get-id').value;
+    if (!id) {
+        showResult('emp-get-result', {error: 'Please enter an employee ID'}, true);
+        return;
+    }
     try {
         const res = await fetch(`${API}/employees/${id}`);
         showResult('emp-get-result', await res.json(), !res.ok);
     } catch(e) { showResult('emp-get-result', {error: e.message}, true); }
 }
+
 
 async function createEmployee() {
     const body = {
@@ -662,6 +704,9 @@ async function deleteLeave() {
 }
 
 showSection('auth');
+setInterval(() => {
+    updateTokenStatus();
+}, 60000);
 </script>
 </body>
 </html>
