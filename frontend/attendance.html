@@ -48,9 +48,9 @@
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
             <div class="form-group">
-                <label>employee id <span style="color:#ef4444">*</span></label>
-                <input type="number" id="att-empid" placeholder="employee id" min="1">
-                <div class="field-error" id="att-empid-error"></div>
+                <label>employee code <span style="color:#ef4444">*</span></label>
+                <input type="text" id="att-empcode" placeholder="enter employee code (e.g. EMP004)">
+                <div class="field-error" id="att-empcode-error"></div>
             </div>
             <div class="form-group">
                 <label>check-in time <span style="color:#ef4444">*</span></label>
@@ -68,7 +68,7 @@
                 </select>
             </div>
         </div>
-        <button class="btn btn-primary" style="width:auto" onclick="markAttendance()">mark attendance</button>
+        <button class="btn btn-primary btn-lg" style="width:auto;padding:10px 24px;font-size:15px" onclick="markAttendance()"><svg class="icon"><use href="#i-check-circle"></use></svg> mark attendance</button>
     </div>
 
     <!-- Update checkout -->
@@ -86,14 +86,10 @@
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
             <div class="form-group" style="margin:0">
-                <label>attendance id <span style="color:#ef4444">*</span></label>
-                <input type="number" id="checkout-id" placeholder="attendance record id" min="1">
-            </div>
-            <div class="form-group" style="margin:0">
                 <label>check-out time <span style="color:#ef4444">*</span></label>
                 <input type="time" id="att-checkout">
             </div>
-            <button class="btn btn-warning" onclick="updateCheckout()">update check-out</button>
+            <button class="btn btn-warning btn-lg" style="padding:10px 24px;font-size:15px" onclick="updateCheckout()"><svg class="icon"><use href="#i-clock"></use></svg> update check-out</button>
         </div>
     </div>
 
@@ -103,7 +99,7 @@
             <div class="card-title"><svg class="icon"><use href="#i-folder"></use></svg> attendance records</div>
         </div>
         <div class="search-bar">
-            <input type="number" id="filter-emp" placeholder="filter by employee id">
+            <input type="text" id="filter-empcode" placeholder="filter by employee code (e.g. EMP004)">
             <input type="date" id="filter-date">
             <button class="btn btn-secondary btn-sm" onclick="loadAttendance()">filter</button>
             <button class="btn btn-secondary btn-sm" onclick="clearFilter()">clear</button>
@@ -141,18 +137,21 @@
     const userEmpId = localStorage.getItem('emp_id');
 
     if (isAdmin()) {
+    const userEmpCode = localStorage.getItem('employee_code');
+
+    if (isAdmin()) {
         document.getElementById('admin-badge').style.display = 'inline';
         document.getElementById('admin-link').style.display = 'inline';
         if (document.getElementById('emp-link')) document.getElementById('emp-link').style.display = 'inline';
         if (document.getElementById('dept-link')) document.getElementById('dept-link').style.display = 'inline';
     } else {
-        if (userEmpId && userEmpId !== 'null') {
-            document.getElementById('att-empid').value = userEmpId;
-            document.getElementById('att-empid').readOnly = true;
-            document.getElementById('att-empid').style.background = '#f8fafc';
-            document.getElementById('filter-emp').value = userEmpId;
-            document.getElementById('filter-emp').readOnly = true;
-            document.getElementById('filter-emp').style.background = '#f8fafc';
+        if (userEmpCode && userEmpCode !== 'null') {
+            document.getElementById('att-empcode').value = userEmpCode;
+            document.getElementById('att-empcode').readOnly = true;
+            document.getElementById('att-empcode').style.background = '#f8fafc';
+            document.getElementById('filter-empcode').value = userEmpCode;
+            document.getElementById('filter-empcode').readOnly = true;
+            document.getElementById('filter-empcode').style.background = '#f8fafc';
         }
     }
 
@@ -163,23 +162,23 @@
     document.getElementById('att-checkin').value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
     async function markAttendance() {
-        const empId = document.getElementById('att-empid').value || userEmpId;
+        const empCode = document.getElementById('att-empcode').value || userEmpCode;
         const checkIn = document.getElementById('att-checkin').value;
         const status = document.getElementById('att-status').value;
         const errors = [];
 
-        document.getElementById('att-empid').classList.remove('error');
-        document.getElementById('att-empid-error').classList.remove('show');
+        document.getElementById('att-empcode').classList.remove('error');
+        document.getElementById('att-empcode-error').classList.remove('show');
         document.getElementById('att-checkin').classList.remove('error');
         document.getElementById('att-checkin-error').classList.remove('show');
         document.getElementById('mark-error').classList.remove('show');
         document.getElementById('mark-success').classList.remove('show');
 
-        if (!empId || parseInt(empId) < 1) {
-            document.getElementById('att-empid').classList.add('error');
-            document.getElementById('att-empid-error').textContent = 'employee id is required';
-            document.getElementById('att-empid-error').classList.add('show');
-            errors.push('employee id is required');
+        if (!empCode) {
+            document.getElementById('att-empcode').classList.add('error');
+            document.getElementById('att-empcode-error').textContent = 'employee code is required';
+            document.getElementById('att-empcode-error').classList.add('show');
+            errors.push('employee code is required');
         }
         if (!checkIn) {
             document.getElementById('att-checkin').classList.add('error');
@@ -200,7 +199,7 @@
                 method: 'POST',
                 headers: authHeaders(),
                 body: JSON.stringify({
-                    employee_id: parseInt(empId),
+                    employee_code: empCode,
                     date: today,
                     check_in: checkIn + ':00',
                     status
@@ -222,7 +221,7 @@
     }
 
     async function updateCheckout() {
-        let id = document.getElementById('checkout-id').value;
+        let id = null;
         const time = document.getElementById('att-checkout').value;
 
         document.getElementById('checkout-error').style.display = 'none';
@@ -234,21 +233,19 @@
             return;
         }
 
-        // If ID not manually entered, auto-find today's record for logged-in user
-        if (!id) {
-            const today = new Date().toISOString().split('T')[0];
-            const empId = userEmpId || document.getElementById('att-empid').value;
-            if (empId) {
-                try {
-                    const findRes = await fetch(`http://localhost:8000/attendance/?employee_id=${empId}&date_filter=${today}`, { headers: authHeaders() });
-                    if (findRes.ok) {
-                        const recs = await findRes.json();
-                        if (recs && recs.length) {
-                            id = recs[0].id;
-                        }
+        // Auto-find today's record for logged-in user or empCode
+        const today = new Date().toISOString().split('T')[0];
+        const empId = userEmpId;
+        if (empId) {
+            try {
+                const findRes = await fetch(`http://localhost:8000/attendance/?employee_id=${empId}&date_filter=${today}`, { headers: authHeaders() });
+                if (findRes.ok) {
+                    const recs = await findRes.json();
+                    if (recs && recs.length) {
+                        id = recs[0].id;
                     }
-                } catch(e) {}
-            }
+                }
+            } catch(e) {}
         }
 
         if (!id) {
@@ -274,18 +271,24 @@
     }
 
     async function loadAttendance() {
-        let emp = document.getElementById('filter-emp').value;
-        if (!isAdmin() && userEmpId && userEmpId !== 'null') {
-            emp = userEmpId;
+        let empCodeFilter = document.getElementById('filter-empcode').value.trim();
+        if (!isAdmin() && userEmpCode && userEmpCode !== 'null') {
+            empCodeFilter = userEmpCode;
         }
 
         const date = document.getElementById('filter-date').value;
         let url = 'http://localhost:8000/attendance/?';
-        if (emp) url += `employee_id=${emp}&`;
         if (date) url += `date_filter=${date}`;
 
         const res = await fetch(url, {headers: authHeaders()});
-        const data = await res.json();
+        let data = await res.json();
+
+        if (empCodeFilter && data && data.length) {
+            data = data.filter(a => {
+                const c = a.employee_code || '';
+                return c.toLowerCase().includes(empCodeFilter.toLowerCase());
+            });
+        }
 
         const statusColors = {
             present: 'badge-green',

@@ -39,17 +39,21 @@ def create_leave(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # 1. Employee must exist
-    emp = db.query(Employee).filter(Employee.id == leave.employee_id).first()
+    emp = None
+    if leave.employee_code:
+        emp = db.query(Employee).filter(Employee.employee_code.ilike(leave.employee_code.strip())).first()
+    elif leave.employee_id:
+        emp = db.query(Employee).filter(Employee.id == leave.employee_id).first()
+
+    if not emp:
+        emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
+
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    # 2. Non-admin can only apply for own leave
     if not current_user.is_admin:
         linked_emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
-        if not linked_emp:
-            raise HTTPException(status_code=403, detail="No employee record linked to your account")
-        if linked_emp.id != leave.employee_id:
+        if not linked_emp or linked_emp.id != emp.id:
             raise HTTPException(status_code=403, detail="You can only apply leave for yourself")
 
     # 3. End date must be after start date
@@ -65,7 +69,7 @@ def create_leave(
 
     # 5. No overlapping leaves
     overlapping = db.query(Leave).filter(
-        Leave.employee_id == leave.employee_id,
+        Leave.employee_id == emp.id,
         Leave.status != "rejected",
         Leave.start_date <= leave.end_date,
         Leave.end_date >= leave.start_date
@@ -77,7 +81,7 @@ def create_leave(
         )
 
     new_leave = Leave(
-        employee_id=leave.employee_id,
+        employee_id=emp.id,
         leave_type=leave.leave_type,
         start_date=leave.start_date,
         end_date=leave.end_date,

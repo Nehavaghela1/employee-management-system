@@ -73,9 +73,9 @@
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
             <div class="form-group">
-                <label>employee id <span style="color:#ef4444">*</span></label>
-                <input type="number" id="l-empid" placeholder="your employee id" min="1">
-                <div class="field-error" id="l-empid-error"></div>
+                <label>employee code <span style="color:#ef4444">*</span></label>
+                <input type="text" id="l-empcode" placeholder="your employee code (e.g. EMP004)">
+                <div class="field-error" id="l-empcode-error"></div>
             </div>
             <div class="form-group">
                 <label>leave type <span style="color:#ef4444">*</span></label>
@@ -102,7 +102,7 @@
             <label>reason</label>
             <input type="text" id="l-reason" placeholder="brief reason (optional)">
         </div>
-        <button class="btn btn-primary" style="width:auto" onclick="requestLeave()">submit request</button>
+        <button class="btn btn-primary btn-lg" style="width:auto;padding:10px 24px;font-size:15px" onclick="requestLeave()"><svg class="icon"><use href="#i-calendar"></use></svg> submit request</button>
     </div>
 
     <!-- Leave records -->
@@ -111,7 +111,7 @@
             <div class="card-title"><svg class="icon"><use href="#i-calendar"></use></svg> leave requests</div>
         </div>
         <div class="search-bar">
-            <input type="number" id="filter-emp" placeholder="filter by employee id">
+            <input type="text" id="filter-empcode" placeholder="filter by employee code (e.g. EMP004)">
             <select id="filter-status">
                 <option value="">all status</option>
                 <option value="pending">pending</option>
@@ -149,7 +149,7 @@
     requireLogin();
     document.getElementById('user-email').textContent = getCurrentEmail();
     
-    const userEmpId = localStorage.getItem('emp_id');
+    const userEmpCode = localStorage.getItem('employee_code');
 
     if (isAdmin()) {
         document.getElementById('admin-badge').style.display = 'inline';
@@ -157,13 +157,13 @@
         if (document.getElementById('emp-link')) document.getElementById('emp-link').style.display = 'inline';
         if (document.getElementById('dept-link')) document.getElementById('dept-link').style.display = 'inline';
     } else {
-        if (userEmpId && userEmpId !== 'null') {
-            document.getElementById('l-empid').value = userEmpId;
-            document.getElementById('l-empid').readOnly = true;
-            document.getElementById('l-empid').style.background = '#f8fafc';
-            document.getElementById('filter-emp').value = userEmpId;
-            document.getElementById('filter-emp').readOnly = true;
-            document.getElementById('filter-emp').style.background = '#f8fafc';
+        if (userEmpCode && userEmpCode !== 'null') {
+            document.getElementById('l-empcode').value = userEmpCode;
+            document.getElementById('l-empcode').readOnly = true;
+            document.getElementById('l-empcode').style.background = '#f8fafc';
+            document.getElementById('filter-empcode').value = userEmpCode;
+            document.getElementById('filter-empcode').readOnly = true;
+            document.getElementById('filter-empcode').style.background = '#f8fafc';
         }
     }
 
@@ -177,7 +177,7 @@
     });
 
     async function requestLeave() {
-        const empId = document.getElementById('l-empid').value || userEmpId;
+        const empCode = document.getElementById('l-empcode').value || userEmpCode;
         const type = document.getElementById('l-type').value;
         const start = document.getElementById('l-start').value;
         const end = document.getElementById('l-end').value;
@@ -185,18 +185,20 @@
         const errors = [];
 
         // Reset errors
-        ['l-empid', 'l-start', 'l-end'].forEach(id => {
-            document.getElementById(id).classList.remove('error');
-            document.getElementById(`${id}-error`).classList.remove('show');
+        ['l-empcode', 'l-start', 'l-end'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('error');
+            const errEl = document.getElementById(`${id}-error`);
+            if (errEl) errEl.classList.remove('show');
         });
         document.getElementById('leave-error').classList.remove('show');
         document.getElementById('leave-success').classList.remove('show');
 
-        if (!empId || parseInt(empId) < 1) {
-            document.getElementById('l-empid').classList.add('error');
-            document.getElementById('l-empid-error').textContent = 'employee id is required';
-            document.getElementById('l-empid-error').classList.add('show');
-            errors.push('employee id is required');
+        if (!empCode) {
+            document.getElementById('l-empcode').classList.add('error');
+            document.getElementById('l-empcode-error').textContent = 'employee code is required';
+            document.getElementById('l-empcode-error').classList.add('show');
+            errors.push('employee code is required');
         }
         if (!start) {
             document.getElementById('l-start').classList.add('error');
@@ -216,12 +218,6 @@
             document.getElementById('l-end-error').classList.add('show');
             errors.push('end date must be after start date');
         }
-        if (start && start < today) {
-            document.getElementById('l-start').classList.add('error');
-            document.getElementById('l-start-error').textContent = 'cannot apply for past dates';
-            document.getElementById('l-start-error').classList.add('show');
-            errors.push('cannot apply for past dates');
-        }
 
         if (errors.length > 0) {
             document.getElementById('leave-error-list').innerHTML = errors.map(e => `<li>${e}</li>`).join('');
@@ -229,7 +225,7 @@
             return;
         }
 
-        const body = {employee_id: parseInt(empId), leave_type: type, start_date: start, end_date: end};
+        const body = {employee_code: empCode, leave_type: type, start_date: start, end_date: end};
         if (reason) body.reason = reason;
 
         try {
@@ -243,6 +239,7 @@
                 document.getElementById('leave-success-msg').textContent = `leave request submitted. status: ${data.status}`;
                 document.getElementById('leave-success').classList.add('show');
                 loadLeaves();
+                loadLeaveBalance();
             } else {
                 document.getElementById('leave-error-list').innerHTML = `<li>${data.detail}</li>`;
                 document.getElementById('leave-error').classList.add('show');
@@ -254,18 +251,24 @@
     }
 
     async function loadLeaves() {
-        let emp = document.getElementById('filter-emp').value;
-        if (!isAdmin() && userEmpId && userEmpId !== 'null') {
-            emp = userEmpId;
+        let empCodeFilter = document.getElementById('filter-empcode').value.trim();
+        if (!isAdmin() && userEmpCode && userEmpCode !== 'null') {
+            empCodeFilter = userEmpCode;
         }
 
         const status = document.getElementById('filter-status').value;
         let url = 'http://localhost:8000/leaves/?';
-        if (emp) url += `employee_id=${emp}&`;
         if (status) url += `status=${status}`;
 
         const res = await fetch(url, {headers: authHeaders()});
-        const data = await res.json();
+        let data = await res.json();
+
+        if (empCodeFilter && data && data.length) {
+            data = data.filter(l => {
+                const c = l.employee_code || '';
+                return c.toLowerCase().includes(empCodeFilter.toLowerCase());
+            });
+        }
 
         const statusColors = {pending: 'badge-yellow', approved: 'badge-green', rejected: 'badge-red'};
 
@@ -275,10 +278,14 @@
             return;
         }
 
-        document.getElementById('leaves-table').innerHTML = data.map(l => `
+        document.getElementById('leaves-table').innerHTML = data.map(l => {
+            const empDisplay = l.employee_code
+                ? `<strong style="color:#1e40af">${l.employee_code}</strong> ${l.employee_name ? `<span style="font-size:12px;color:#64748b">(${l.employee_name})</span>` : ''}`
+                : `emp #${l.employee_id}`;
+            return `
             <tr>
                 <td style="color:#64748b">#${l.id}</td>
-                <td>emp #${l.employee_id}</td>
+                <td>${empDisplay}</td>
                 <td><span class="badge badge-blue">${l.leave_type}</span></td>
                 <td>${l.start_date}</td>
                 <td>${l.end_date}</td>
@@ -291,8 +298,8 @@
                     ` : ''}
                     ${l.status === 'pending' ? `<button class="btn btn-secondary btn-sm" onclick="cancelLeave(${l.id})">cancel</button>` : ''}
                 </td>
-            </tr>
-        `).join('');
+            </tr>`;
+        }).join('');
     }
 
     async function updateStatus(id, status) {

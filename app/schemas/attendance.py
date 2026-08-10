@@ -3,11 +3,12 @@ from typing import Optional
 from datetime import datetime ,date ,time
 
 class AttendanceCreate(BaseModel):
-    employee_id:int
-    date:date
-    check_in :Optional[time]=None 
-    check_out:Optional[time]=None
-    status:Optional[str]="present"
+    employee_id: Optional[int] = None
+    employee_code: Optional[str] = None
+    date: date
+    check_in: Optional[time] = None 
+    check_out: Optional[time] = None
+    status: Optional[str] = "present"
 class AttendanceUpdate(BaseModel):
     check_in:Optional[time]=None
     check_out:Optional[time]=None

@@ -100,15 +100,21 @@ def mark_attendance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    emp = db.query(Employee).filter(Employee.id == att.employee_id).first()
+    emp = None
+    if att.employee_code:
+        emp = db.query(Employee).filter(Employee.employee_code.ilike(att.employee_code.strip())).first()
+    elif att.employee_id:
+        emp = db.query(Employee).filter(Employee.id == att.employee_id).first()
+
+    if not emp:
+        emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
+
     if not emp:
         raise HTTPException(status_code=404, detail="employee not found")
 
     if not current_user.is_admin:
         linked_emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
-        if not linked_emp:
-            raise HTTPException(status_code=403, detail="no employee record linked to your account. contact admin.")
-        if linked_emp.id != att.employee_id:
+        if not linked_emp or linked_emp.id != emp.id:
             raise HTTPException(status_code=403, detail="you can only mark your own attendance")
 
     valid_statuses = ["present", "absent", "half_day", "work_from_home", "on_leave"]
@@ -130,14 +136,14 @@ def mark_attendance(
             raise HTTPException(status_code=400, detail="check-in cannot be more than 15 minutes in the past")
 
     existing = db.query(Attendance).filter(
-        Attendance.employee_id == att.employee_id,
+        Attendance.employee_id == emp.id,
         Attendance.date == today
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="attendance already marked for today")
 
     new_att = Attendance(
-        employee_id=att.employee_id,
+        employee_id=emp.id,
         date=today,
         check_in=att.check_in,
         check_out=att.check_out,

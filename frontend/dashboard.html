@@ -217,6 +217,33 @@
             </div>
         </div>
 
+        <!-- Monthly Attendance & Public Holidays Calendar -->
+        <div class="card" style="margin-bottom:20px">
+            <div class="card-header" style="flex-wrap:wrap;gap:12px">
+                <div class="card-title"><svg class="icon"><use href="#i-calendar"></use></svg> attendance & holiday calendar</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-left:auto">
+                    <button class="btn btn-secondary btn-sm" onclick="changeCalMonth(-1)">← prev</button>
+                    <span id="cal-month-title" style="font-weight:700;font-size:15px;color:#1e293b;min-width:130px;text-align:center"></span>
+                    <button class="btn btn-secondary btn-sm" onclick="changeCalMonth(1)">next →</button>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div style="display:flex;gap:12px;flex-wrap:wrap;padding:10px 0 16px;font-size:12px;font-weight:600;border-bottom:1px solid #e2e8f0;margin-bottom:16px">
+                <div style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#dcfce7;border:1px solid #16a34a;border-radius:3px"></span> 🟢 Present</div>
+                <div style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#f3e8ff;border:1px solid #9333ea;border-radius:3px"></span> 🟣 Half-Day</div>
+                <div style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#fee2e2;border:1px solid #dc2626;border-radius:3px"></span> 🔴 Leave / Absent</div>
+                <div style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#1e293b;border-radius:3px"></span> ⬛ Weekend (Sat/Sun)</div>
+                <div style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#fef3c7;border:1px solid #d97706;border-radius:3px"></span> 🟠 Public Holiday</div>
+            </div>
+
+            <!-- Grid Header & Days -->
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center;font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px"></div>
+        </div>
+
         <!-- Today's attendance -->
         <div class="card" style="margin-bottom:20px">
             <div class="card-header">
@@ -493,8 +520,108 @@
         }
     }
 
+    const PUBLIC_HOLIDAYS_2026 = {
+        '2026-01-26': 'Republic Day',
+        '2026-03-25': 'Holi',
+        '2026-04-03': 'Good Friday',
+        '2026-04-14': 'Dr. Ambedkar Jayanti',
+        '2026-05-01': 'May Day',
+        '2026-08-15': 'Independence Day',
+        '2026-10-02': 'Gandhi Jayanti',
+        '2026-10-20': 'Dussehra',
+        '2026-11-08': 'Diwali',
+        '2026-12-25': 'Christmas'
+    };
+
+    let calYear = new Date().getFullYear();
+    let calMonth = new Date().getMonth();
+
+    function changeCalMonth(delta) {
+        calMonth += delta;
+        if (calMonth < 0) { calMonth = 11; calYear--; }
+        if (calMonth > 11) { calMonth = 0; calYear++; }
+        renderCalendar();
+    }
+
+    async function renderCalendar() {
+        const titleEl = document.getElementById('cal-month-title');
+        const gridEl = document.getElementById('cal-grid');
+        if (!gridEl) return;
+
+        const firstDay = new Date(calYear, calMonth, 1);
+        const lastDay = new Date(calYear, calMonth + 1, 0);
+        const daysInMonth = lastDay.getDate();
+        const startDayIndex = firstDay.getDay();
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        titleEl.textContent = `${monthNames[calMonth]} ${calYear}`;
+
+        let attMap = {};
+        const empId = localStorage.getItem('emp_id');
+        if (empId && empId !== 'null') {
+            try {
+                const res = await fetch(`http://localhost:8000/attendance/?employee_id=${empId}`, { headers: authHeaders() });
+                if (res.ok) {
+                    const recs = await res.json();
+                    recs.forEach(r => { attMap[r.date] = r.status; });
+                }
+            } catch(e) {}
+        }
+
+        let cellsHtml = '';
+        for (let i = 0; i < startDayIndex; i++) {
+            cellsHtml += `<div style="background:#f8fafc;min-height:54px;border-radius:6px"></div>`;
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${calYear}-${String(calMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const currDate = new Date(calYear, calMonth, day);
+            const isWeekend = (currDate.getDay() === 0 || currDate.getDay() === 6);
+            const holidayName = PUBLIC_HOLIDAYS_2026[dateStr];
+            const status = attMap[dateStr];
+
+            let bg = 'white';
+            let border = '1px solid #e2e8f0';
+            let textColor = '#1e293b';
+            let badge = '';
+
+            if (holidayName) {
+                bg = '#fef3c7';
+                border = '1px solid #f59e0b';
+                textColor = '#92400e';
+                badge = `<div style="font-size:9px;font-weight:700;color:#b45309;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${holidayName}</div>`;
+            } else if (isWeekend) {
+                bg = '#1e293b';
+                border = '1px solid #0f172a';
+                textColor = '#f8fafc';
+                badge = `<div style="font-size:9px;opacity:0.75;margin-top:2px">Weekend</div>`;
+            } else if (status) {
+                const st = status.toLowerCase();
+                if (st.includes('present')) {
+                    bg = '#dcfce7'; border = '1px solid #16a34a'; textColor = '#15803d';
+                    badge = `<div style="font-size:9px;font-weight:700;color:#15803d;margin-top:2px">🟢 Present</div>`;
+                } else if (st.includes('half')) {
+                    bg = '#f3e8ff'; border = '1px solid #9333ea'; textColor = '#7e22ce';
+                    badge = `<div style="font-size:9px;font-weight:700;color:#7e22ce;margin-top:2px">🟣 Half-Day</div>`;
+                } else if (st.includes('absent') || st.includes('leave')) {
+                    bg = '#fee2e2'; border = '1px solid #dc2626'; textColor = '#b91c1c';
+                    badge = `<div style="font-size:9px;font-weight:700;color:#b91c1c;margin-top:2px">🔴 Absent</div>`;
+                }
+            }
+
+            cellsHtml += `
+                <div style="background:${bg};border:${border};color:${textColor};padding:8px 6px;border-radius:6px;min-height:54px;display:flex;flex-direction:column;justify-content:space-between">
+                    <div style="font-weight:700;font-size:13px">${day}</div>
+                    ${badge}
+                </div>`;
+        }
+
+        gridEl.innerHTML = cellsHtml;
+    }
+
     // Initialize dashboard
     initDashboard();
+    renderCalendar();
 </script>
 </body>
 </html>
