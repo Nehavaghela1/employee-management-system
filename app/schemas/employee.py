@@ -49,6 +49,7 @@ class EmployeeUpdate(BaseModel):
 
 class EmployeeResponse(BaseModel):
     id: int
+    employee_code: Optional[str] = None
     first_name: str
     last_name: str
     email: str

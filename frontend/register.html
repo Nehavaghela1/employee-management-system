@@ -16,11 +16,17 @@
             padding: 2px 0;
             transition: color 0.2s;
         }
-        .password-rules li::before { content: "○ "; }
-        .password-rules li.pass { color: #22c55e; }
-        .password-rules li.pass::before { content: "✓ "; }
-        .password-rules li.fail { color: #ef4444; }
-        .password-rules li.fail::before { content: "✗ "; }
+        .password-rules li::before {
+            content: "";
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            border: 1.5px solid #cbd5e1;
+            margin-right: 7px;
+        }
+        .password-rules li.pass { color: #1e293b; }
+        .password-rules li.pass::before { background: #16a34a; border-color: #16a34a; }
         .char-count {
             font-size: 11px;
             color: #94a3b8;
@@ -33,14 +39,14 @@
 
 <div class="auth-card">
     <div class="auth-logo">
-        <div style="font-size:48px">🏢</div>
+        <div class="auth-logo-icon"><svg class="icon"><use href="#i-building"></use></svg></div>
         <h1>Create account</h1>
         <p>join employee management system</p>
     </div>
 
     <!-- Summary error box -->
     <div class="alert alert-error" id="error-box">
-        <span class="alert-icon">⚠️</span>
+        <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-alert-triangle"></use></svg></span>
         <div class="alert-content">
             <div class="alert-title">please fix the following:</div>
             <ul class="alert-list" id="error-list"></ul>
@@ -49,7 +55,7 @@
 
     <!-- Success box -->
     <div class="alert alert-success" id="success-box">
-        <span class="alert-icon">✅</span>
+        <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-check-circle"></use></svg></span>
         <div class="alert-content">
             <div class="alert-title">account created successfully!</div>
             <div>redirecting to login in 2 seconds...</div>
@@ -76,8 +82,8 @@
         <label>password <span style="color:#ef4444">*</span></label>
         <div style="position:relative">
             <input type="password" id="password" placeholder="minimum 8 characters" maxlength="50" autocomplete="new-password">
-            <button type="button" id="toggle-password" onclick="togglePassword('password','toggle-password')"
-                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:16px">👁</button>
+            <button type="button" id="toggle-password" onclick="togglePassword('password','toggle-password')" aria-label="Show password"
+                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;display:flex"><svg class="icon"><use href="#i-eye"></use></svg></button>
         </div>
         <div class="field-error" id="password-error"></div>
 
@@ -101,8 +107,8 @@
         <label>confirm password <span style="color:#ef4444">*</span></label>
         <div style="position:relative">
             <input type="password" id="confirm-password" placeholder="re-enter your password" maxlength="50" autocomplete="new-password">
-            <button type="button" onclick="togglePassword('confirm-password','toggle-confirm')" id="toggle-confirm"
-                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;font-size:16px">👁</button>
+            <button type="button" onclick="togglePassword('confirm-password','toggle-confirm')" id="toggle-confirm" aria-label="Show password"
+                style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;display:flex"><svg class="icon"><use href="#i-eye"></use></svg></button>
         </div>
         <div class="field-error" id="confirm-error"></div>
         <div id="match-indicator" style="font-size:11px;margin-top:4px;display:none"></div>
@@ -117,6 +123,7 @@
     </div>
 </div>
 
+<script src="js/icons.js"></script>
 <script src="js/auth.js"></script>
 <script>
     // Redirect if already logged in
@@ -126,12 +133,15 @@
     function togglePassword(inputId, btnId) {
         const input = document.getElementById(inputId);
         const btn = document.getElementById(btnId);
+        const use = btn.querySelector('use');
         if (input.type === 'password') {
             input.type = 'text';
-            btn.textContent = '🙈';
+            use.setAttribute('href', '#i-eye-off');
+            btn.setAttribute('aria-label', 'Hide password');
         } else {
             input.type = 'password';
-            btn.textContent = '👁';
+            use.setAttribute('href', '#i-eye');
+            btn.setAttribute('aria-label', 'Show password');
         }
     }
 
@@ -227,11 +237,11 @@
 
         indicator.style.display = 'block';
         if (password === confirm) {
-            indicator.style.color = '#22c55e';
-            indicator.textContent = '✓ passwords match';
+            indicator.style.color = '#16a34a';
+            indicator.textContent = 'passwords match';
         } else {
             indicator.style.color = '#ef4444';
-            indicator.textContent = '✗ passwords do not match';
+            indicator.textContent = 'passwords do not match';
         }
     }
 

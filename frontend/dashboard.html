@@ -5,125 +5,496 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard — EMS</title>
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        .greeting-section {
+            background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+            border-radius: 16px;
+            padding: 28px 32px;
+            color: white;
+            margin-bottom: 24px;
+        }
+        .greeting-section h2 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+        .greeting-section p { font-size: 14px; opacity: 0.85; }
+        .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .quick-action-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            color: #475569;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .quick-action-btn:hover { background: #f1f5f9; border-color: #cbd5e1; color: #1e293b; }
+        .quick-action-btn .icon { color: #64748b; }
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .leave-row-pending { background: #fffbeb; }
+        .approve-btn {
+            background: #dcfce7;
+            color: #16a34a;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .reject-btn {
+            background: #fee2e2;
+            color: #dc2626;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            margin-left: 4px;
+        }
+        .today-card {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .today-card.absent {
+            background: #fef9c3;
+            border-color: #fde68a;
+        }
+        .time-chip {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-size: 13px;
+        }
+    </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
 <nav class="navbar">
-    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <a href="dashboard.html" class="navbar-brand"><svg class="icon"><use href="#i-building"></use></svg> EMS</a>
     <div class="navbar-nav">
         <a href="dashboard.html" class="nav-link active">Dashboard</a>
-        <a href="employees.html" class="nav-link">Employees</a>
-        <a href="departments.html" class="nav-link">Departments</a>
+        <a href="employees.html" class="nav-link" id="emp-link" style="display:none">Employees</a>
+        <a href="departments.html" class="nav-link" id="dept-link" style="display:none">Departments</a>
         <a href="attendance.html" class="nav-link">Attendance</a>
         <a href="leaves.html" class="nav-link">Leaves</a>
-        <a href="admin.html" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none"><svg class="icon"><use href="#i-settings"></use></svg> Admin</a>
     </div>
     <div class="navbar-user">
         <span class="user-badge" id="user-email"></span>
         <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <a href="settings.html" class="nav-link">⚙️ settings</a>
         <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
     </div>
 </nav>
 
 <div class="main-content">
-    <h2 style="margin-bottom:20px; color:#1e293b">good morning 👋 <span id="greeting-name"></span></h2>
 
-    <!-- Stats -->
-    <div class="stats-grid" id="stats-grid">
-        <div class="stat-card">
-            <div class="stat-icon blue">👥</div>
-            <div class="stat-info">
-                <h3 id="total-employees">—</h3>
-                <p>total employees</p>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon green">🏛️</div>
-            <div class="stat-info">
-                <h3 id="total-departments">—</h3>
-                <p>departments</p>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon yellow">📋</div>
-            <div class="stat-info">
-                <h3 id="pending-leaves">—</h3>
-                <p>pending leaves</p>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon green">✅</div>
-            <div class="stat-info">
-                <h3 id="present-today">—</h3>
-                <p>present today</p>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon blue">📅</div>
-            <div class="stat-info">
-                <h3 id="approved-leaves">—</h3>
-                <p>approved leaves</p>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon red">🗂️</div>
-            <div class="stat-info">
-                <h3 id="total-attendance">—</h3>
-                <p>attendance records</p>
-            </div>
-        </div>
+    <!-- Greeting -->
+    <div class="greeting-section">
+        <h2 id="greeting-text">welcome back</h2>
+        <p id="greeting-sub">welcome back to employee management system</p>
+        <p style="margin-top:6px;font-size:13px;opacity:0.7" id="today-date"></p>
     </div>
 
-    <!-- Quick actions -->
-    <div class="card">
-        <div class="card-header">
-            <div class="card-title">⚡ quick actions</div>
+    <!-- ===== ADMIN DASHBOARD ===== -->
+    <div id="admin-dashboard" style="display:none">
+
+        <!-- Stats grid -->
+        <div class="stats-grid" style="margin-bottom:24px">
+            <div class="stat-card">
+                <div class="stat-icon blue"><svg class="icon icon-lg"><use href="#i-users"></use></svg></div>
+                <div class="stat-info">
+                    <h3 id="total-employees">—</h3>
+                    <p>total employees</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon gray"><svg class="icon icon-lg"><use href="#i-building"></use></svg></div>
+                <div class="stat-info">
+                    <h3 id="total-departments">—</h3>
+                    <p>departments</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon yellow"><svg class="icon icon-lg"><use href="#i-clock"></use></svg></div>
+                <div class="stat-info">
+                    <h3 id="pending-leaves">—</h3>
+                    <p>pending leaves</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green"><svg class="icon icon-lg"><use href="#i-check-circle"></use></svg></div>
+                <div class="stat-info">
+                    <h3 id="present-today">—</h3>
+                    <p>present today</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue"><svg class="icon icon-lg"><use href="#i-calendar"></use></svg></div>
+                <div class="stat-info">
+                    <h3 id="approved-leaves">—</h3>
+                    <p>approved leaves</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon gray"><svg class="icon icon-lg"><use href="#i-folder"></use></svg></div>
+                <div class="stat-info">
+                    <h3 id="total-attendance">—</h3>
+                    <p>attendance records</p>
+                </div>
+            </div>
         </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap">
-            <a href="attendance.html" class="btn btn-primary">✅ mark attendance</a>
-            <a href="leaves.html" class="btn btn-success">📋 request leave</a>
-            <a href="employees.html" class="btn btn-secondary">👥 view employees</a>
-            <a href="departments.html" class="btn btn-secondary">🏛️ departments</a>
+
+        <!-- Admin quick actions -->
+        <div class="card" style="margin-bottom:20px">
+            <div class="section-title">quick actions</div>
+            <div class="quick-actions">
+                <a href="employees.html" class="quick-action-btn"><svg class="icon"><use href="#i-users"></use></svg> manage employees</a>
+                <a href="departments.html" class="quick-action-btn"><svg class="icon"><use href="#i-building"></use></svg> manage departments</a>
+                <a href="attendance.html" class="quick-action-btn"><svg class="icon"><use href="#i-clock"></use></svg> view attendance</a>
+                <a href="leaves.html" class="quick-action-btn"><svg class="icon"><use href="#i-calendar"></use></svg> manage leaves</a>
+                <a href="admin.html" class="quick-action-btn"><svg class="icon"><use href="#i-settings"></use></svg> admin panel</a>
+            </div>
         </div>
+
+        <!-- Pending leave approvals -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><svg class="icon"><use href="#i-calendar"></use></svg> pending leave approvals</div>
+                <span class="badge badge-yellow" id="pending-count">loading...</span>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>employee</th>
+                            <th>type</th>
+                            <th>from</th>
+                            <th>to</th>
+                            <th>days</th>
+                            <th>reason</th>
+                            <th>actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pending-table">
+                        <tr><td colspan="8" style="text-align:center;padding:30px;color:#64748b">loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
+
+    <!-- ===== USER DASHBOARD ===== -->
+    <div id="user-dashboard" style="display:none">
+
+        <!-- User quick actions -->
+        <div class="card" style="margin-bottom:20px">
+            <div class="section-title">quick actions</div>
+            <div class="quick-actions">
+                <a href="attendance.html" class="quick-action-btn"><svg class="icon"><use href="#i-check-circle"></use></svg> mark attendance</a>
+                <a href="leaves.html" class="quick-action-btn"><svg class="icon"><use href="#i-calendar"></use></svg> request leave</a>
+            </div>
+        </div>
+
+        <!-- Today's attendance -->
+        <div class="card" style="margin-bottom:20px">
+            <div class="card-header">
+                <div class="card-title"><svg class="icon"><use href="#i-clock"></use></svg> today's attendance</div>
+                <a href="attendance.html" class="btn btn-primary btn-sm">mark attendance</a>
+            </div>
+            <div id="my-attendance-today">
+                <div style="color:#64748b;font-size:14px;padding:8px 0">loading...</div>
+            </div>
+        </div>
+
+        <!-- My leaves -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><svg class="icon"><use href="#i-calendar"></use></svg> my leave requests</div>
+                <a href="leaves.html" class="btn btn-success btn-sm">+ request leave</a>
+            </div>
+            <div id="my-leaves-section">
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>type</th>
+                                <th>from</th>
+                                <th>to</th>
+                                <th>days</th>
+                                <th>reason</th>
+                                <th>status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="my-leaves-table">
+                            <tr><td colspan="6" style="text-align:center;padding:30px;color:#64748b">loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
 </div>
 
+<script src="js/icons.js"></script>
 <script src="js/auth.js"></script>
 <script>
     requireLogin();
 
-    // Set user info
     const email = getCurrentEmail();
     document.getElementById('user-email').textContent = email;
-    document.getElementById('greeting-name').textContent = email.split('@')[0];
 
-    if (isAdmin()) {
-        document.getElementById('admin-badge').style.display = 'inline';
-        document.getElementById('admin-link').style.display = 'inline';
+    document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IN', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+    async function initDashboard() {
+        let empId = localStorage.getItem('emp_id');
+        let empCode = localStorage.getItem('employee_code');
+
+        if (!empId || !empCode || empId === 'null' || empCode === 'null') {
+            try {
+                const meRes = await fetch('http://localhost:8000/auth/me', { headers: authHeaders() });
+                if (meRes.ok) {
+                    const meData = await meRes.json();
+                    if (meData.employee_id) {
+                        empId = meData.employee_id.toString();
+                        localStorage.setItem('emp_id', empId);
+                    }
+                    if (meData.employee_code) {
+                        empCode = meData.employee_code;
+                        localStorage.setItem('employee_code', empCode);
+                    }
+                }
+            } catch(e) {
+                console.error('failed to fetch auth/me', e);
+            }
+        }
+
+        const validEmpCode = (empCode && empCode !== 'null') ? empCode : '';
+        const validEmpId = (empId && empId !== 'null') ? empId : null;
+
+        const greetingText = validEmpCode ? `welcome back ${validEmpCode}` : `welcome back ${email.split('@')[0]}`;
+        document.getElementById('greeting-text').textContent = greetingText;
+
+        if (isAdmin()) {
+            document.getElementById('admin-badge').style.display = 'inline';
+            document.getElementById('admin-link').style.display = 'inline';
+            if (document.getElementById('emp-link')) document.getElementById('emp-link').style.display = 'inline';
+            if (document.getElementById('dept-link')) document.getElementById('dept-link').style.display = 'inline';
+            document.getElementById('greeting-sub').textContent = 'you have admin access — manage your team below';
+            document.getElementById('admin-dashboard').style.display = 'block';
+            loadAdminDashboard();
+            loadPendingLeaves();
+        } else {
+            document.getElementById('user-dashboard').style.display = 'block';
+            document.getElementById('greeting-sub').textContent = 'here\'s your overview for today';
+            loadLeaveBalance(validEmpId);
+            loadMyAttendanceToday(validEmpId);
+            loadMyLeaves(validEmpId);
+        }
     }
 
-    // Load dashboard stats
-    async function loadDashboard() {
+    // ADMIN — load stats
+    async function loadAdminDashboard() {
         try {
             const res = await fetch('http://localhost:8000/dashboard/', {
                 headers: {'Authorization': `Bearer ${getToken()}`}
             });
             if (res.status === 401) { logout(); return; }
             const data = await res.json();
-
             document.getElementById('total-employees').textContent = data.total_employees;
             document.getElementById('total-departments').textContent = data.total_departments;
             document.getElementById('pending-leaves').textContent = data.pending_leaves;
             document.getElementById('present-today').textContent = data.present_today;
             document.getElementById('approved-leaves').textContent = data.approved_leaves;
             document.getElementById('total-attendance').textContent = data.total_attendance_records;
-        } catch(e) {
-            console.error('dashboard load failed');
+        } catch(e) { console.error('dashboard load failed'); }
+    }
+
+    // ADMIN — load pending leaves
+    async function loadPendingLeaves() {
+        try {
+            const res = await fetch('http://localhost:8000/leaves/?status=pending&limit=50', {
+                headers: {'Authorization': `Bearer ${getToken()}`}
+            });
+            const data = await res.json();
+            document.getElementById('pending-count').textContent = `${data.length} pending`;
+
+            if (!data.length) {
+                document.getElementById('pending-table').innerHTML =
+                    `<tr><td colspan="8"><div class="empty-state"><svg class="icon"><use href="#i-check-circle"></use></svg><p>no pending leaves — all caught up!</p></div></td></tr>`;
+                return;
+            }
+
+            document.getElementById('pending-table').innerHTML = data.map(l => {
+                const days = Math.ceil((new Date(l.end_date) - new Date(l.start_date)) / (1000*60*60*24)) + 1;
+                const empDisplay = l.employee_code
+                    ? `<strong>${l.employee_code}</strong> ${l.employee_name ? `<span style="color:#64748b;font-size:12px">(${l.employee_name})</span>` : ''}`
+                    : `emp #${l.employee_id}`;
+                return `
+                <tr class="leave-row-pending">
+                    <td style="color:#64748b">#${l.id}</td>
+                    <td>${empDisplay}</td>
+                    <td><span class="badge badge-blue">${l.leave_type}</span></td>
+                    <td>${l.start_date}</td>
+                    <td>${l.end_date}</td>
+                    <td><span class="badge badge-gray">${days}d</span></td>
+                    <td style="color:#64748b;max-width:150px">${l.reason || '—'}</td>
+                    <td>
+                        <button class="approve-btn" onclick="updateLeave(${l.id},'approved')"><svg class="icon"><use href="#i-check"></use></svg> approve</button>
+                        <button class="reject-btn" onclick="updateLeave(${l.id},'rejected')"><svg class="icon"><use href="#i-x"></use></svg> reject</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        } catch(e) { console.error('pending leaves load failed'); }
+    }
+
+    async function updateLeave(id, status) {
+        const res = await fetch(`http://localhost:8000/leaves/${id}`, {
+            method: 'PUT',
+            headers: authHeaders(),
+            body: JSON.stringify({status})
+        });
+        if (res.ok) {
+            loadPendingLeaves();
+            loadAdminDashboard();
         }
     }
 
-    loadDashboard();
+    async function loadLeaveBalance(empId) {
+        if (!empId) return;
+        try {
+            const res = await fetch(`http://localhost:8000/leaves/balance/${empId}`, { headers: authHeaders() });
+            if (res.ok) {
+                const b = await res.json();
+                document.getElementById('bal-used').textContent = `${b.used_days} days`;
+                document.getElementById('bal-remaining').textContent = `${b.remaining_days} days`;
+                document.getElementById('bal-unpaid').textContent = `${b.unpaid_days} days`;
+            }
+        } catch(e) {}
+    }
+
+    // USER — today's attendance
+    async function loadMyAttendanceToday(empId) {
+        const el = document.getElementById('my-attendance-today');
+
+        if (!empId) {
+            el.innerHTML = `
+                <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:14px;font-size:14px;display:flex;gap:8px;align-items:flex-start">
+                    <svg class="icon" style="margin-top:2px;color:#a16207"><use href="#i-alert-triangle"></use></svg>
+                    <span>contact admin to link your account</span>
+                </div>`;
+            return;
+        }
+
+        const today = new Date().toISOString().split('T')[0];
+        try {
+            const res = await fetch(`http://localhost:8000/attendance/?employee_id=${empId}&date_filter=${today}`, {
+                headers: authHeaders()
+            });
+            const data = await res.json();
+
+            if (!data || !data.length) {
+                el.innerHTML = `
+                    <div class="today-card absent">
+                        <svg class="icon icon-xl" style="color:#b45309"><use href="#i-alert-triangle"></use></svg>
+                        <div>
+                            <div style="font-weight:600;color:#92400e">attendance not marked today</div>
+                            <div style="font-size:13px;color:#a16207;margin-top:4px">please mark your attendance as soon as possible</div>
+                        </div>
+                        <a href="attendance.html" class="btn btn-warning btn-sm" style="margin-left:auto">mark attendance</a>
+                    </div>`;
+            } else {
+                const att = data[0];
+                el.innerHTML = `
+                    <div class="today-card">
+                        <svg class="icon icon-xl" style="color:#16a34a"><use href="#i-check-circle"></use></svg>
+                        <div style="flex:1">
+                            <div style="font-weight:600;color:#166534">attendance marked</div>
+                            <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
+                                <div class="time-chip"><svg class="icon"><use href="#i-clock"></use></svg> check-in: <strong>${att.check_in || '—'}</strong></div>
+                                <div class="time-chip"><svg class="icon"><use href="#i-clock"></use></svg> check-out: <strong>${att.check_out || 'pending'}</strong></div>
+                                <span class="badge badge-green">${att.status.replace('_',' ')}</span>
+                            </div>
+                        </div>
+                        ${!att.check_out ? `<a href="attendance.html" class="btn btn-secondary btn-sm">update check-out</a>` : ''}
+                    </div>`;
+            }
+        } catch(e) {
+            el.innerHTML = `<div style="color:#64748b;font-size:14px">could not load attendance data</div>`;
+        }
+    }
+
+    // USER — my leaves
+    async function loadMyLeaves(empId) {
+        const table = document.getElementById('my-leaves-table');
+        if (!empId) {
+            table.innerHTML = `<tr><td colspan="6"><div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:14px;font-size:14px;color:#a16207;text-align:center">contact admin to link your account</div></td></tr>`;
+            return;
+        }
+
+        try {
+            const res = await fetch(`http://localhost:8000/leaves/?employee_id=${empId}&limit=20`, {
+                headers: authHeaders()
+            });
+            const data = await res.json();
+
+            const statusColors = {
+                pending: 'badge-yellow',
+                approved: 'badge-green',
+                rejected: 'badge-red'
+            };
+
+            if (!data || !data.length) {
+                table.innerHTML =
+                    `<tr><td colspan="6"><div class="empty-state"><svg class="icon"><use href="#i-calendar"></use></svg><p>no leave requests found</p></div></td></tr>`;
+                return;
+            }
+
+            table.innerHTML = data.map(l => {
+                const days = Math.ceil((new Date(l.end_date) - new Date(l.start_date)) / (1000*60*60*24)) + 1;
+                return `
+                <tr>
+                    <td><span class="badge badge-blue">${l.leave_type}</span></td>
+                    <td>${l.start_date}</td>
+                    <td>${l.end_date}</td>
+                    <td><span class="badge badge-gray">${days}d</span></td>
+                    <td style="color:#64748b">${l.reason || '—'}</td>
+                    <td><span class="badge ${statusColors[l.status] || 'badge-gray'}">${l.status}</span></td>
+                </tr>`;
+            }).join('');
+        } catch(e) {
+            console.error('my leaves load failed', e);
+            table.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:#ef4444">could not load leave requests</td></tr>`;
+        }
+    }
+
+    // Initialize dashboard
+    initDashboard();
 </script>
 </body>
 </html>

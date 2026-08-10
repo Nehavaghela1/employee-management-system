@@ -8,7 +8,7 @@ class Employee(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     first_name = Column(String, nullable=False)
-    last_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=True)
     email = Column(String, unique=True, nullable=False)
     phone = Column(String, nullable=True)
     position = Column(String, nullable=False)
@@ -16,6 +16,8 @@ class Employee(Base):
     hire_date = Column(Date, nullable=True)
     department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    employee_code = Column(String, unique=True, nullable=True)   
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     department = relationship("Department", backref="employees")
-    user = relationship("User", backref="employee")    
+    user = relationship("User", backref="employee") 
+    

@@ -9,18 +9,19 @@
 <body>
 
 <nav class="navbar">
-    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <a href="dashboard.html" class="navbar-brand"><svg class="icon"><use href="#i-building"></use></svg> EMS</a>
     <div class="navbar-nav">
         <a href="dashboard.html" class="nav-link">Dashboard</a>
-        <a href="employees.html" class="nav-link">Employees</a>
-        <a href="departments.html" class="nav-link">Departments</a>
+        <a href="employees.html" class="nav-link" id="emp-link" style="display:none">Employees</a>
+        <a href="departments.html" class="nav-link" id="dept-link" style="display:none">Departments</a>
         <a href="attendance.html" class="nav-link active">Attendance</a>
         <a href="leaves.html" class="nav-link">Leaves</a>
-        <a href="admin.html" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none"><svg class="icon"><use href="#i-settings"></use></svg> Admin</a>
     </div>
     <div class="navbar-user">
         <span class="user-badge" id="user-email"></span>
         <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <a href="settings.html" class="nav-link">⚙️ settings</a>
         <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
     </div>
 </nav>
@@ -30,18 +31,18 @@
     <!-- Mark attendance card -->
     <div class="card">
         <div class="card-header">
-            <div class="card-title">✅ mark attendance — today only</div>
+            <div class="card-title"><svg class="icon"><use href="#i-check-circle"></use></svg> mark attendance — today only</div>
             <span style="font-size:13px;color:#64748b" id="today-date"></span>
         </div>
 
         <div class="alert alert-error" id="mark-error">
-            <span class="alert-icon">⚠️</span>
+            <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-alert-triangle"></use></svg></span>
             <div class="alert-content">
                 <ul class="alert-list" id="mark-error-list"></ul>
             </div>
         </div>
         <div class="alert alert-success" id="mark-success">
-            <span class="alert-icon">✅</span>
+            <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-check-circle"></use></svg></span>
             <div class="alert-content"><div id="mark-success-msg"></div></div>
         </div>
 
@@ -73,14 +74,14 @@
     <!-- Update checkout -->
     <div class="card">
         <div class="card-header">
-            <div class="card-title">🕕 update check-out</div>
+            <div class="card-title"><svg class="icon"><use href="#i-clock"></use></svg> update check-out</div>
         </div>
         <div class="alert alert-error" id="checkout-error" style="display:none">
-            <span class="alert-icon">⚠️</span>
+            <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-alert-triangle"></use></svg></span>
             <div class="alert-content"><div id="checkout-error-msg"></div></div>
         </div>
         <div class="alert alert-success" id="checkout-success" style="display:none">
-            <span class="alert-icon">✅</span>
+            <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-check-circle"></use></svg></span>
             <div class="alert-content"><div id="checkout-success-msg"></div></div>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
@@ -99,42 +100,60 @@
     <!-- View records -->
     <div class="card">
         <div class="card-header">
-            <div class="card-title">📋 attendance records</div>
+            <div class="card-title"><svg class="icon"><use href="#i-folder"></use></svg> attendance records</div>
         </div>
         <div class="search-bar">
             <input type="number" id="filter-emp" placeholder="filter by employee id">
             <input type="date" id="filter-date">
             <button class="btn btn-secondary btn-sm" onclick="loadAttendance()">filter</button>
             <button class="btn btn-secondary btn-sm" onclick="clearFilter()">clear</button>
+            <button class="btn btn-success btn-sm" style="margin-left:auto" onclick="exportAttendanceCSV()"><svg class="icon"><use href="#i-download"></use></svg> export csv</button>
         </div>
         <div class="table-wrapper">
             <table>
                 <thead>
                     <tr>
-                        <th>id</th>
+                        <th>code</th>
                         <th>employee</th>
                         <th>date</th>
+                        <th>day</th>
                         <th>check-in</th>
                         <th>check-out</th>
+                        <th>hours worked</th>
                         <th>status</th>
-                        ${isAdmin ? '<th>actions</th>' : ''}
+                        <th id="th-actions">actions</th>
                     </tr>
                 </thead>
                 <tbody id="att-table">
-                    <tr><td colspan="7" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>
+                    <tr><td colspan="9" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
 
+<script src="js/icons.js"></script>
 <script src="js/auth.js"></script>
 <script>
     requireLogin();
     document.getElementById('user-email').textContent = getCurrentEmail();
+    
+    const userEmpId = localStorage.getItem('emp_id');
+
     if (isAdmin()) {
         document.getElementById('admin-badge').style.display = 'inline';
         document.getElementById('admin-link').style.display = 'inline';
+        if (document.getElementById('emp-link')) document.getElementById('emp-link').style.display = 'inline';
+        if (document.getElementById('dept-link')) document.getElementById('dept-link').style.display = 'inline';
+    } else {
+        if (userEmpId && userEmpId !== 'null') {
+            document.getElementById('att-empid').value = userEmpId;
+            document.getElementById('att-empid').readOnly = true;
+            document.getElementById('att-empid').style.background = '#f8fafc';
+            document.getElementById('filter-emp').value = userEmpId;
+            document.getElementById('filter-emp').readOnly = true;
+            document.getElementById('filter-emp').style.background = '#f8fafc';
+        }
     }
 
     document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IN', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
@@ -144,7 +163,7 @@
     document.getElementById('att-checkin').value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
     async function markAttendance() {
-        const empId = document.getElementById('att-empid').value;
+        const empId = document.getElementById('att-empid').value || userEmpId;
         const checkIn = document.getElementById('att-checkin').value;
         const status = document.getElementById('att-status').value;
         const errors = [];
@@ -189,7 +208,7 @@
             });
             const data = await res.json();
             if (res.ok) {
-                document.getElementById('mark-success-msg').textContent = `attendance marked successfully! record id: ${data.id}`;
+                document.getElementById('mark-success-msg').textContent = 'attendance marked successfully!';
                 document.getElementById('mark-success').classList.add('show');
                 loadAttendance();
             } else {
@@ -203,14 +222,37 @@
     }
 
     async function updateCheckout() {
-        const id = document.getElementById('checkout-id').value;
+        let id = document.getElementById('checkout-id').value;
         const time = document.getElementById('att-checkout').value;
 
         document.getElementById('checkout-error').style.display = 'none';
         document.getElementById('checkout-success').style.display = 'none';
 
-        if (!id || !time) {
-            document.getElementById('checkout-error-msg').textContent = 'attendance id and check-out time are required';
+        if (!time) {
+            document.getElementById('checkout-error-msg').textContent = 'check-out time is required';
+            document.getElementById('checkout-error').style.display = 'flex';
+            return;
+        }
+
+        // If ID not manually entered, auto-find today's record for logged-in user
+        if (!id) {
+            const today = new Date().toISOString().split('T')[0];
+            const empId = userEmpId || document.getElementById('att-empid').value;
+            if (empId) {
+                try {
+                    const findRes = await fetch(`http://localhost:8000/attendance/?employee_id=${empId}&date_filter=${today}`, { headers: authHeaders() });
+                    if (findRes.ok) {
+                        const recs = await findRes.json();
+                        if (recs && recs.length) {
+                            id = recs[0].id;
+                        }
+                    }
+                } catch(e) {}
+            }
+        }
+
+        if (!id) {
+            document.getElementById('checkout-error-msg').textContent = 'no active attendance record found for today';
             document.getElementById('checkout-error').style.display = 'flex';
             return;
         }
@@ -222,7 +264,7 @@
         });
         const data = await res.json();
         if (res.ok) {
-            document.getElementById('checkout-success-msg').textContent = 'check-out updated successfully';
+            document.getElementById('checkout-success-msg').textContent = 'check-out updated successfully!';
             document.getElementById('checkout-success').style.display = 'flex';
             loadAttendance();
         } else {
@@ -232,7 +274,11 @@
     }
 
     async function loadAttendance() {
-        const emp = document.getElementById('filter-emp').value;
+        let emp = document.getElementById('filter-emp').value;
+        if (!isAdmin() && userEmpId && userEmpId !== 'null') {
+            emp = userEmpId;
+        }
+
         const date = document.getElementById('filter-date').value;
         let url = 'http://localhost:8000/attendance/?';
         if (emp) url += `employee_id=${emp}&`;
@@ -249,27 +295,38 @@
             on_leave: 'badge-gray'
         };
 
-        if (!data.length) {
+        if (!data || !data.length) {
             document.getElementById('att-table').innerHTML =
-                `<tr><td colspan="7"><div class="empty-state"><div class="icon">📋</div><p>no records found</p></div></td></tr>`;
+                `<tr><td colspan="8"><div class="empty-state"><svg class="icon"><use href="#i-folder"></use></svg><p>no records found</p></div></td></tr>`;
             return;
         }
 
-        document.getElementById('att-table').innerHTML = data.map(a => `
-            <tr>
-                <td style="color:#64748b">#${a.id}</td>
-                <td>emp #${a.employee_id}</td>
+        document.getElementById('att-table').innerHTML = data.map(a => {
+            const isWeekend = a.day_name === 'Saturday' || a.day_name === 'Sunday';
+            const rowStyle = isWeekend ? 'style="background:#fef2f2;border-left:3px solid #ef4444"' : '';
+            const empCode = a.employee_code || ('EMP' + String(a.employee_id).padStart(3, '0'));
+            const empName = a.employee_name ? `<span style="font-size:12px;color:#64748b">(${a.employee_name})</span>` : '';
+            const hrsDisplay = a.hours_worked ? `${a.hours_worked.toFixed(1)} hrs` : '0.0 hrs';
+
+            return `
+            <tr ${rowStyle}>
+                <td><strong style="color:#1e40af">${empCode}</strong></td>
+                <td>${empName || ('emp #' + a.employee_id)}</td>
                 <td>${a.date}</td>
+                <td><span style="font-size:12px;font-weight:600;color:${isWeekend?'#dc2626':'#64748b'}">${a.day_name || ''}</span></td>
                 <td>${a.check_in || '—'}</td>
                 <td>${a.check_out || '<span style="color:#f59e0b">pending</span>'}</td>
+                <td><span class="badge ${a.hours_worked && a.hours_worked < 8 ? 'badge-yellow' : 'badge-gray'}">${hrsDisplay}</span></td>
                 <td><span class="badge ${statusColors[a.status] || 'badge-gray'}">${a.status.replace('_',' ')}</span></td>
-                ${isAdmin() ? `<td><button class="btn btn-danger btn-sm" onclick="deleteAtt(${a.id})">delete</button></td>` : '<td></td>'}
-            </tr>
-        `).join('');
+                ${isAdmin() ? `<td><button class="btn btn-danger btn-sm" onclick="deleteAtt(${a.id})">delete</button></td>` : ''}
+            </tr>`;
+        }).join('');
     }
 
     function clearFilter() {
-        document.getElementById('filter-emp').value = '';
+        if (isAdmin()) {
+            document.getElementById('filter-emp').value = '';
+        }
         document.getElementById('filter-date').value = '';
         loadAttendance();
     }
@@ -280,6 +337,17 @@
             method: 'DELETE', headers: authHeaders()
         });
         if (res.ok) loadAttendance();
+    }
+
+    function exportAttendanceCSV() {
+        const emp = document.getElementById('filter-emp').value;
+        const dt = document.getElementById('filter-date').value;
+        let url = 'http://localhost:8000/attendance/export?';
+        if (emp) url += `employee_id=${emp}&`;
+        if (dt) {
+            url += `start_date=${dt}&end_date=${dt}&`;
+        }
+        window.open(url, '_blank');
     }
 
     loadAttendance();

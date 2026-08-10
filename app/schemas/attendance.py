@@ -13,13 +13,17 @@ class AttendanceUpdate(BaseModel):
     check_out:Optional[time]=None
     status:Optional[str]=None
 class AttendanceResponse(BaseModel):
-    id:int
-    employee_id:int
-    date:date
-    check_in:Optional[time]
-    check_out:Optional[time]
-    status:str
-    created_at:datetime
+    id: int
+    employee_id: int
+    employee_code: Optional[str] = None
+    employee_name: Optional[str] = None
+    date: date
+    day_name: Optional[str] = None
+    check_in: Optional[time] = None
+    check_out: Optional[time] = None
+    hours_worked: Optional[float] = None
+    status: str
+    created_at: datetime
 
     class Config:
-        from_attributes=True
+        from_attributes = True

@@ -42,18 +42,19 @@
 <body>
 
 <nav class="navbar">
-    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <a href="dashboard.html" class="navbar-brand"><svg class="icon"><use href="#i-building"></use></svg> EMS</a>
     <div class="navbar-nav">
         <a href="dashboard.html" class="nav-link">Dashboard</a>
-        <a href="employees.html" class="nav-link active">Employees</a>
-        <a href="departments.html" class="nav-link">Departments</a>
+        <a href="employees.html" class="nav-link active" id="emp-link" style="display:none">Employees</a>
+        <a href="departments.html" class="nav-link" id="dept-link" style="display:none">Departments</a>
         <a href="attendance.html" class="nav-link">Attendance</a>
         <a href="leaves.html" class="nav-link">Leaves</a>
-        <a href="admin.html" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none"><svg class="icon"><use href="#i-settings"></use></svg> Admin</a>
     </div>
     <div class="navbar-user">
         <span class="user-badge" id="user-email"></span>
         <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <a href="settings.html" class="nav-link">⚙️ settings</a>
         <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
     </div>
 </nav>
@@ -61,7 +62,7 @@
 <div class="main-content">
     <div class="card">
         <div class="card-header">
-            <div class="card-title">👥 employees</div>
+            <div class="card-title"><svg class="icon"><use href="#i-users"></use></svg> employees</div>
             <button class="btn btn-primary btn-sm" onclick="openCreateModal()">+ add employee</button>
         </div>
 
@@ -70,23 +71,32 @@
             <input
                 type="text"
                 id="search-name"
-                placeholder="🔍 search by name..."
+                placeholder="search by name..."
+                onkeydown="if(event.key==='Enter') applyFilters()"
+            >
+            <input
+                type="text"
+                id="search-code"
+                placeholder="search by code (e.g. EMP001 or 1)..."
+                style="max-width:200px"
                 onkeydown="if(event.key==='Enter') applyFilters()"
             >
             <select id="filter-dept">
                 <option value="">all departments</option>
             </select>
             <select id="sort-by">
+                <option value="employee_code_asc">code 1 to last (EMP001 first)</option>
+                <option value="employee_code_desc">code last to 1 (EMP999 first)</option>
                 <option value="created_at">newest first</option>
                 <option value="first_name">name a–z</option>
                 <option value="salary">salary</option>
             </select>
             <button class="btn-apply" onclick="applyFilters()">apply filter</button>
-            <button class="btn-reset" onclick="resetFilters()" title="Clear all filters">✕ reset</button>
+            <button class="btn-reset" onclick="resetFilters()" title="Clear all filters">reset</button>
         </div>
 
         <div class="alert alert-error" id="list-error" style="display:none">
-            <span class="alert-icon">⚠️</span>
+            <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-alert-triangle"></use></svg></span>
             <div class="alert-content"><div id="list-error-msg"></div></div>
         </div>
 
@@ -94,6 +104,7 @@
             <table>
                 <thead>
                     <tr>
+                        <th>code</th>
                         <th>name</th>
                         <th>email</th>
                         <th>position</th>
@@ -103,15 +114,15 @@
                     </tr>
                 </thead>
                 <tbody id="employees-table">
-                    <tr><td colspan="6" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>
+                    <tr><td colspan="7" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>
                 </tbody>
             </table>
         </div>
 
         <div style="display:flex;gap:8px;margin-top:16px;align-items:center">
-            <button class="btn btn-secondary btn-sm" onclick="changePage(-1)">← prev</button>
+            <button class="btn btn-secondary btn-sm" onclick="changePage(-1)"><svg class="icon"><use href="#i-chevron-left"></use></svg> prev</button>
             <span id="page-info" style="font-size:13px;color:#64748b">page 1</span>
-            <button class="btn btn-secondary btn-sm" onclick="changePage(1)">next →</button>
+            <button class="btn btn-secondary btn-sm" onclick="changePage(1)">next <svg class="icon"><use href="#i-chevron-right"></use></svg></button>
         </div>
     </div>
 </div>
@@ -121,11 +132,11 @@
     <div class="modal">
         <div class="modal-header">
             <div class="modal-title" id="modal-title">add employee</div>
-            <button class="modal-close" onclick="closeModal()">✕</button>
+            <button class="modal-close" onclick="closeModal()" aria-label="Close"><svg class="icon"><use href="#i-x"></use></svg></button>
         </div>
 
         <div class="alert alert-error" id="modal-error">
-            <span class="alert-icon">⚠️</span>
+            <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-alert-triangle"></use></svg></span>
             <div class="alert-content">
                 <div class="alert-title">please fix the following:</div>
                 <ul class="alert-list" id="modal-error-list"></ul>
@@ -196,14 +207,17 @@
     </div>
 </div>
 
+<script src="js/icons.js"></script>
 <script src="js/auth.js"></script>
 <script>
-    requireLogin();
+    requireAdmin();
 
     document.getElementById('user-email').textContent = getCurrentEmail();
     if (isAdmin()) {
         document.getElementById('admin-badge').style.display = 'inline';
         document.getElementById('admin-link').style.display = 'inline';
+        if (document.getElementById('emp-link')) document.getElementById('emp-link').style.display = 'inline';
+        if (document.getElementById('dept-link')) document.getElementById('dept-link').style.display = 'inline';
     }
 
     let currentPage = 1;
@@ -235,22 +249,36 @@
     // ─── Core employee loader (always uses current filter state) ─────────────
     async function loadEmployees() {
         const name = document.getElementById('search-name').value.trim();
+        const code = document.getElementById('search-code') ? document.getElementById('search-code').value.trim() : '';
         const dept = document.getElementById('filter-dept').value;
-        const sort = document.getElementById('sort-by').value;
+        let sortVal = document.getElementById('sort-by').value || 'employee_code_asc';
+        let sortParam = 'employee_code';
+        let orderParam = 'asc';
 
-        const params = { page: currentPage, limit: 10, sort_by: sort };
+        if (sortVal === 'employee_code_desc') {
+            sortParam = 'employee_code';
+            orderParam = 'desc';
+        } else if (sortVal === 'employee_code_asc' || sortVal === 'employee_code') {
+            sortParam = 'employee_code';
+            orderParam = 'asc';
+        } else {
+            sortParam = sortVal;
+            orderParam = (sortVal === 'salary' || sortVal === 'created_at') ? 'desc' : 'asc';
+        }
+
+        const params = { page: currentPage, limit: 10, sort_by: sortParam, order: orderParam };
         if (name) params.name = name;
+        if (code) params.employee_code = code;
         if (dept) params.department_id = dept;
 
         const q = new URLSearchParams(params).toString();
 
         // Show loading state
         document.getElementById('employees-table').innerHTML =
-            `<tr><td colspan="6" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>`;
+            `<tr><td colspan="7" style="text-align:center;padding:40px;color:#64748b">loading...</td></tr>`;
         document.getElementById('list-error').style.display = 'none';
 
         try {
-            // FIX: added authHeaders() — without this, the backend returns 401/empty for admins
             const res = await fetch(`http://localhost:8000/employees/?${q}`, {
                 headers: authHeaders()
             });
@@ -261,7 +289,7 @@
                     err.detail || `error ${res.status}: could not load employees`;
                 document.getElementById('list-error').style.display = 'flex';
                 document.getElementById('employees-table').innerHTML =
-                    `<tr><td colspan="6"><div class="empty-state"><div class="icon">⚠️</div><p>failed to load employees</p></div></td></tr>`;
+                    `<tr><td colspan="7"><div class="empty-state"><svg class="icon"><use href="#i-alert-triangle"></use></svg><p>failed to load employees</p></div></td></tr>`;
                 return;
             }
 
@@ -270,14 +298,16 @@
 
             if (!data.length) {
                 document.getElementById('employees-table').innerHTML =
-                    `<tr><td colspan="6"><div class="empty-state"><div class="icon">👤</div><p>no employees found</p></div></td></tr>`;
+                    `<tr><td colspan="7"><div class="empty-state"><svg class="icon"><use href="#i-user"></use></svg><p>no employees found</p></div></td></tr>`;
                 return;
             }
 
             document.getElementById('employees-table').innerHTML = data.map(e => {
                 const dept = departments.find(d => d.id === e.department_id);
+                const codeDisplay = e.employee_code || ('EMP' + String(e.id).padStart(3, '0'));
                 return `
                 <tr>
+                    <td><strong style="color:#1e40af">${codeDisplay}</strong></td>
                     <td><strong>${e.first_name} ${e.last_name}</strong></td>
                     <td style="color:#64748b">${e.email}</td>
                     <td>${e.position}</td>
@@ -301,7 +331,7 @@
             document.getElementById('list-error-msg').textContent = 'connection failed — is the server running?';
             document.getElementById('list-error').style.display = 'flex';
             document.getElementById('employees-table').innerHTML =
-                `<tr><td colspan="6"><div class="empty-state"><div class="icon">🔌</div><p>could not connect to server</p></div></td></tr>`;
+                `<tr><td colspan="7"><div class="empty-state"><svg class="icon"><use href="#i-alert-triangle"></use></svg><p>could not connect to server</p></div></td></tr>`;
         }
     }
 
@@ -316,8 +346,9 @@
     // Reset all filter inputs and reload
     function resetFilters() {
         document.getElementById('search-name').value = '';
+        if (document.getElementById('search-code')) document.getElementById('search-code').value = '';
         document.getElementById('filter-dept').value = '';
-        document.getElementById('sort-by').value = 'created_at';
+        document.getElementById('sort-by').value = 'employee_code_asc';
         currentPage = 1;
         loadEmployees();
     }

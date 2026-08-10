@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings — EMS</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+        .readonly-val {
+            padding: 10px 14px;
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #64748b;
+        }
+        .profile-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        @media (max-width: 640px) {
+            .profile-form-grid { grid-template-columns: 1fr; }
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 14px;
+        }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { color: #64748b; font-weight: 500; }
+        .info-value { color: #1e293b; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="dashboard.html" class="navbar-brand"><svg class="icon"><use href="#i-building"></use></svg> EMS</a>
+    <div class="navbar-nav">
+        <a href="dashboard.html" class="nav-link">Dashboard</a>
+        <a href="employees.html" class="nav-link" id="emp-link" style="display:none">Employees</a>
+        <a href="departments.html" class="nav-link" id="dept-link" style="display:none">Departments</a>
+        <a href="attendance.html" class="nav-link">Attendance</a>
+        <a href="leaves.html" class="nav-link">Leaves</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none"><svg class="icon"><use href="#i-settings"></use></svg> Admin</a>
+    </div>
+    <div class="navbar-user">
+        <span class="user-badge" id="user-email"></span>
+        <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <a href="settings.html" class="nav-link active">⚙️ settings</a>
+        <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
+    </div>
+</nav>
+
+<div class="main-content">
+    <div style="margin-bottom:20px">
+        <h1 style="font-size:22px;font-weight:700;color:#1e293b">Account Settings</h1>
+        <p style="font-size:14px;color:#64748b;margin-top:2px">manage your profile details and security settings</p>
+    </div>
+
+    <div class="settings-grid">
+
+        <!-- SECTION 1: MY PROFILE -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><svg class="icon"><use href="#i-user"></use></svg> My Profile</div>
+                <div id="profile-action-btns">
+                    <button class="btn btn-secondary btn-sm" id="btn-edit-profile" onclick="enableProfileEdit()">edit profile</button>
+                </div>
+            </div>
+
+            <div class="alert alert-error" id="profile-error">
+                <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-alert-triangle"></use></svg></span>
+                <div class="alert-content">
+                    <div class="alert-title">please fix the following:</div>
+                    <ul class="alert-list" id="profile-error-list"></ul>
+                </div>
+            </div>
+            <div class="alert alert-success" id="profile-success">
+                <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-check-circle"></use></svg></span>
+                <div class="alert-content"><div id="profile-success-msg">profile updated successfully</div></div>
+            </div>
+
+            <div id="profile-unlinked-msg" style="display:none;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:14px;font-size:14px;color:#a16207;margin-bottom:16px">
+                <svg class="icon" style="margin-right:6px"><use href="#i-alert-triangle"></use></svg>
+                your account is not linked to an employee record yet. contact your admin to link your account.
+            </div>
+
+            <div class="profile-form-grid">
+                <div class="form-group">
+                    <label>first name <span style="color:#ef4444">*</span></label>
+                    <input type="text" id="p-firstname" disabled>
+                    <div class="field-error" id="p-firstname-error"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>last name <span style="color:#ef4444">*</span></label>
+                    <input type="text" id="p-lastname" disabled>
+                    <div class="field-error" id="p-lastname-error"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>email address <span style="font-size:11px;color:#64748b">(read-only)</span></label>
+                    <div class="readonly-val" id="p-email">—</div>
+                </div>
+
+                <div class="form-group">
+                    <label>phone number</label>
+                    <input type="tel" id="p-phone" placeholder="10-15 digits" disabled>
+                    <div class="field-error" id="p-phone-error"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>position <span style="font-size:11px;color:#64748b">(read-only — admin only)</span></label>
+                    <div class="readonly-val" id="p-position">—</div>
+                </div>
+
+                <div class="form-group">
+                    <label>employee code <span style="font-size:11px;color:#64748b">(read-only)</span></label>
+                    <div class="readonly-val" id="p-code">—</div>
+                </div>
+
+                <div class="form-group" style="grid-column:1 / -1">
+                    <label>department <span style="font-size:11px;color:#64748b">(read-only)</span></label>
+                    <div class="readonly-val" id="p-department">—</div>
+                </div>
+            </div>
+
+            <div id="edit-buttons" style="display:none;gap:10px;justify-content:flex-end;margin-top:16px">
+                <button class="btn btn-secondary" onclick="cancelProfileEdit()">cancel</button>
+                <button class="btn btn-primary" style="width:auto" id="btn-save-profile" onclick="saveProfile()">save changes</button>
+            </div>
+        </div>
+
+        <!-- SECTION 2: ACCOUNT INFO -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><svg class="icon"><use href="#i-shield"></use></svg> Account Info</div>
+            </div>
+            <div>
+                <div class="info-row">
+                    <span class="info-label">email address</span>
+                    <span class="info-value" id="acc-email">—</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">username</span>
+                    <span class="info-value" id="acc-username">—</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">account created date</span>
+                    <span class="info-value" id="acc-created">—</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">account status</span>
+                    <span class="info-value"><span class="badge badge-green">active</span></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">role & privileges</span>
+                    <span class="info-value" id="acc-admin-status"><span class="badge badge-gray">regular user</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECTION 3: CHANGE PASSWORD -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title"><svg class="icon"><use href="#i-lock"></use></svg> Change Password</div>
+            </div>
+
+            <p style="font-size:13px;color:#64748b;margin-bottom:16px">
+                update your password for better security. <br>
+                <span style="color:#2563eb">note: if you forgot your current password, use <a href="forgot-password.html" style="color:#2563eb;text-decoration:underline">forgot password</a> on login page.</span>
+            </p>
+
+            <div class="alert alert-error" id="pass-error">
+                <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-alert-triangle"></use></svg></span>
+                <div class="alert-content">
+                    <div class="alert-title">please fix the following:</div>
+                    <ul class="alert-list" id="pass-error-list"></ul>
+                </div>
+            </div>
+            <div class="alert alert-success" id="pass-success">
+                <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-check-circle"></use></svg></span>
+                <div class="alert-content"><div id="pass-success-msg">password updated successfully</div></div>
+            </div>
+
+            <div style="max-width:500px">
+                <div class="form-group">
+                    <label>current password <span style="color:#ef4444">*</span></label>
+                    <div style="position:relative">
+                        <input type="password" id="cp-current" placeholder="enter current password" maxlength="50">
+                        <button type="button" id="toggle-curr" onclick="togglePassword('cp-current','toggle-curr')" aria-label="Show password"
+                            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;display:flex"><svg class="icon"><use href="#i-eye"></use></svg></button>
+                    </div>
+                    <div class="field-error" id="cp-current-error"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>new password <span style="color:#ef4444">*</span></label>
+                    <div style="position:relative">
+                        <input type="password" id="cp-new" placeholder="minimum 8 characters" maxlength="50">
+                        <button type="button" id="toggle-new" onclick="togglePassword('cp-new','toggle-new')" aria-label="Show password"
+                            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;display:flex"><svg class="icon"><use href="#i-eye"></use></svg></button>
+                    </div>
+                    <div class="field-error" id="cp-new-error"></div>
+
+                    <!-- Strength indicator -->
+                    <div id="cp-strength-bar" style="margin-top:8px;height:4px;border-radius:4px;background:#e2e8f0;display:none">
+                        <div id="cp-strength-fill" style="height:100%;border-radius:4px;transition:all 0.3s;width:0%"></div>
+                    </div>
+                    <div id="cp-strength-text" style="font-size:11px;margin-top:4px;display:none"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>confirm new password <span style="color:#ef4444">*</span></label>
+                    <div style="position:relative">
+                        <input type="password" id="cp-confirm" placeholder="re-enter new password" maxlength="50">
+                        <button type="button" id="toggle-conf" onclick="togglePassword('cp-confirm','toggle-conf')" aria-label="Show password"
+                            style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;display:flex"><svg class="icon"><use href="#i-eye"></use></svg></button>
+                    </div>
+                    <div class="field-error" id="cp-confirm-error"></div>
+                    <div id="cp-match-indicator" style="font-size:11px;margin-top:4px;display:none"></div>
+                </div>
+
+                <button class="btn btn-primary" style="width:auto" id="btn-change-pass" onclick="handleChangePassword()">
+                    update password
+                </button>
+            </div>
+        </div>
+
+        <!-- Section 4: Payslip Generator -->
+        <div class="card" style="margin-top:24px">
+            <div class="card-header">
+                <div class="card-title"><svg class="icon"><use href="#i-download"></use></svg> monthly payslip & salary statement</div>
+            </div>
+            <p style="color:#64748b;font-size:14px;margin-bottom:16px">
+                calculate day-wise salary, attendance & leave balance deductions, and view itemized monthly payslip.
+            </p>
+            <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap">
+                <div class="form-group" style="margin:0;min-width:140px">
+                    <label>month</label>
+                    <select id="ps-month">
+                        <option value="1">january</option>
+                        <option value="2">february</option>
+                        <option value="3">march</option>
+                        <option value="4">april</option>
+                        <option value="5">may</option>
+                        <option value="6">june</option>
+                        <option value="7">july</option>
+                        <option value="8" selected>august</option>
+                        <option value="9">september</option>
+                        <option value="10">october</option>
+                        <option value="11">november</option>
+                        <option value="12">december</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;min-width:140px">
+                    <label>year</label>
+                    <input type="number" id="ps-year" value="2026" min="2020" max="2030">
+                </div>
+                <button class="btn btn-success" onclick="generatePayslip()">generate payslip</button>
+            </div>
+
+            <div id="payslip-result" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-top:16px">
+                <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;padding-bottom:12px;margin-bottom:12px">
+                    <div>
+                        <h4 style="margin:0;color:#1e40af" id="ps-emp-name">Payslip</h4>
+                        <div style="font-size:13px;color:#64748b" id="ps-emp-code"></div>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-weight:700;color:#0f172a" id="ps-period"></div>
+                        <div style="font-size:12px;color:#16a34a;font-weight:600">STATUS: GENERATED</div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:14px">
+                    <div>
+                        <div style="color:#64748b;font-size:12px;text-transform:uppercase;font-weight:600">Earnings & Base Rate</div>
+                        <div style="margin-top:8px">Base Monthly Salary: <strong id="ps-base">₹0</strong></div>
+                        <div>Days in Month: <strong id="ps-days-m">30</strong></div>
+                        <div>Daily Rate: <strong id="ps-daily">₹0</strong></div>
+                        <div>Present Days: <strong id="ps-present">0</strong></div>
+                    </div>
+                    <div>
+                        <div style="color:#64748b;font-size:12px;text-transform:uppercase;font-weight:600">Deductions Breakdown</div>
+                        <div style="margin-top:8px">Half-Day Cut: <span style="color:#dc2626" id="ps-half-cut">₹0</span></div>
+                        <div>Absent Cut: <span style="color:#dc2626" id="ps-absent-cut">₹0</span></div>
+                        <div>Unpaid Excess Leave Cut: <span style="color:#dc2626" id="ps-unpaid-cut">₹0</span></div>
+                        <div>Total Deductions: <strong style="color:#dc2626" id="ps-total-ded">₹0</strong></div>
+                    </div>
+                </div>
+                <div style="margin-top:16px;padding-top:12px;border-top:2px dashed #cbd5e1;display:flex;justify-content:space-between;align-items:center">
+                    <div style="font-size:16px;font-weight:700;color:#0f172a">Net Payable Salary:</div>
+                    <div style="font-size:24px;font-weight:800;color:#16a34a" id="ps-net">₹0</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="js/icons.js"></script>
+<script src="js/auth.js"></script>
+<script>
+    requireLogin();
+
+    document.getElementById('user-email').textContent = getCurrentEmail();
+    if (isAdmin()) {
+        document.getElementById('admin-badge').style.display = 'inline';
+        document.getElementById('admin-link').style.display = 'inline';
+        if (document.getElementById('emp-link')) document.getElementById('emp-link').style.display = 'inline';
+        if (document.getElementById('dept-link')) document.getElementById('dept-link').style.display = 'inline';
+    }
+
+    let currentEmpId = null;
+    let originalEmployee = null;
+
+    // Toggle password visibility helper
+    function togglePassword(inputId, btnId) {
+        const input = document.getElementById(inputId);
+        const btn = document.getElementById(btnId);
+        const use = btn.querySelector('use');
+        if (input.type === 'password') {
+            input.type = 'text';
+            use.setAttribute('href', '#i-eye-off');
+        } else {
+            input.type = 'password';
+            use.setAttribute('href', '#i-eye');
+        }
+    }
+
+    // Load initial settings data
+    async function loadSettings() {
+        // Load Account Info from /auth/me
+        try {
+            const meRes = await fetch('http://localhost:8000/auth/me', { headers: authHeaders() });
+            if (meRes.ok) {
+                const meData = await meRes.json();
+                document.getElementById('acc-email').textContent = meData.email || '—';
+                document.getElementById('acc-username').textContent = meData.username || '—';
+                
+                if (meData.created_at) {
+                    const dt = new Date(meData.created_at);
+                    document.getElementById('acc-created').textContent = dt.toLocaleDateString('en-IN', {
+                        year: 'numeric', month: 'long', day: 'numeric'
+                    });
+                }
+
+                if (meData.is_admin) {
+                    document.getElementById('acc-admin-status').innerHTML = '<span class="badge badge-yellow">ADMIN</span>';
+                } else {
+                    document.getElementById('acc-admin-status').innerHTML = '<span class="badge badge-gray">regular user</span>';
+                }
+
+                if (meData.employee_id) {
+                    currentEmpId = meData.employee_id;
+                    localStorage.setItem('emp_id', currentEmpId);
+                }
+                if (meData.employee_code) {
+                    localStorage.setItem('employee_code', meData.employee_code);
+                }
+            }
+        } catch(e) {
+            console.error('failed to load account info', e);
+        }
+
+        // Load Employee Profile if emp_id exists
+        const empId = localStorage.getItem('emp_id') || currentEmpId;
+        if (!empId || empId === 'null') {
+            document.getElementById('profile-unlinked-msg').style.display = 'block';
+            document.getElementById('btn-edit-profile').style.display = 'none';
+            return;
+        }
+
+        try {
+            const empRes = await fetch(`http://localhost:8000/employees/${empId}`, { headers: authHeaders() });
+            if (empRes.ok) {
+                const emp = await empRes.json();
+                originalEmployee = emp;
+                document.getElementById('p-firstname').value = emp.first_name || '';
+                document.getElementById('p-lastname').value = emp.last_name || '';
+                document.getElementById('p-email').textContent = emp.email || '—';
+                document.getElementById('p-phone').value = emp.phone || '';
+                document.getElementById('p-position').textContent = emp.position || 'employee';
+                document.getElementById('p-code').textContent = emp.employee_code || `EMP${String(emp.id).padStart(3,'0')}`;
+
+                if (emp.department_id) {
+                    const deptRes = await fetch(`http://localhost:8000/departments/`, { headers: authHeaders() });
+                    if (deptRes.ok) {
+                        const depts = await deptRes.json();
+                        const dept = depts.find(d => d.id === emp.department_id);
+                        document.getElementById('p-department').textContent = dept ? dept.name : 'unassigned';
+                    }
+                } else {
+                    document.getElementById('p-department').textContent = 'unassigned';
+                }
+            } else {
+                document.getElementById('profile-unlinked-msg').style.display = 'block';
+                document.getElementById('btn-edit-profile').style.display = 'none';
+            }
+        } catch(e) {
+            console.error('failed to load employee details', e);
+        }
+    }
+
+    // Profile Edit toggle
+    function enableProfileEdit() {
+        document.getElementById('p-firstname').disabled = false;
+        document.getElementById('p-lastname').disabled = false;
+        document.getElementById('p-phone').disabled = false;
+        document.getElementById('edit-buttons').style.display = 'flex';
+        document.getElementById('btn-edit-profile').style.display = 'none';
+    }
+
+    function cancelProfileEdit() {
+        if (originalEmployee) {
+            document.getElementById('p-firstname').value = originalEmployee.first_name || '';
+            document.getElementById('p-lastname').value = originalEmployee.last_name || '';
+            document.getElementById('p-phone').value = originalEmployee.phone || '';
+        }
+        document.getElementById('p-firstname').disabled = true;
+        document.getElementById('p-lastname').disabled = true;
+        document.getElementById('p-phone').disabled = true;
+        document.getElementById('edit-buttons').style.display = 'none';
+        document.getElementById('btn-edit-profile').style.display = 'inline-block';
+        clearProfileErrors();
+    }
+
+    function clearProfileErrors() {
+        ['p-firstname', 'p-lastname', 'p-phone'].forEach(id => {
+            document.getElementById(id).classList.remove('error');
+            const err = document.getElementById(`${id}-error`);
+            if (err) { err.textContent = ''; err.classList.remove('show'); }
+        });
+        document.getElementById('profile-error').classList.remove('show');
+        document.getElementById('profile-success').classList.remove('show');
+    }
+
+    // Save Profile
+    async function saveProfile() {
+        clearProfileErrors();
+        const firstName = document.getElementById('p-firstname').value.trim();
+        const lastName = document.getElementById('p-lastname').value.trim();
+        const phone = document.getElementById('p-phone').value.trim();
+        const errors = [];
+
+        // Validation
+        if (!firstName) {
+            document.getElementById('p-firstname').classList.add('error');
+            document.getElementById('p-firstname-error').textContent = 'first name is required';
+            document.getElementById('p-firstname-error').classList.add('show');
+            errors.push('first name is required');
+        }
+
+        if (!lastName) {
+            document.getElementById('p-lastname').classList.add('error');
+            document.getElementById('p-lastname-error').textContent = 'last name is required';
+            document.getElementById('p-lastname-error').classList.add('show');
+            errors.push('last name is required');
+        }
+
+        if (phone) {
+            const digits = phone.replace(/[+\-\s]/g, '');
+            if (!/^\d+$/.test(digits) || digits.length < 10 || digits.length > 15) {
+                document.getElementById('p-phone').classList.add('error');
+                document.getElementById('p-phone-error').textContent = 'phone number must be 10-15 digits';
+                document.getElementById('p-phone-error').classList.add('show');
+                errors.push('phone number must be 10-15 digits');
+            }
+        }
+
+        if (errors.length > 0) {
+            document.getElementById('profile-error-list').innerHTML = errors.map(e => `<li>${e}</li>`).join('');
+            document.getElementById('profile-error').classList.add('show');
+            return;
+        }
+
+        const btn = document.getElementById('btn-save-profile');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> saving...';
+
+        const empId = localStorage.getItem('emp_id') || currentEmpId;
+
+        try {
+            const res = await fetch(`http://localhost:8000/employees/${empId}`, {
+                method: 'PUT',
+                headers: authHeaders(),
+                body: JSON.stringify({
+                    first_name: firstName,
+                    last_name: lastName,
+                    phone: phone
+                })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                originalEmployee = data;
+                document.getElementById('profile-success-msg').textContent = 'profile updated successfully';
+                document.getElementById('profile-success').classList.add('show');
+                cancelProfileEdit();
+            } else {
+                document.getElementById('profile-error-list').innerHTML = `<li>${data.detail || 'update failed'}</li>`;
+                document.getElementById('profile-error').classList.add('show');
+            }
+        } catch(e) {
+            document.getElementById('profile-error-list').innerHTML = '<li>connection failed</li>';
+            document.getElementById('profile-error').classList.add('show');
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = 'save changes';
+    }
+
+    // --- CHANGE PASSWORD SECTION ---
+    document.getElementById('cp-new').addEventListener('input', function() {
+        const val = this.value;
+        const bar = document.getElementById('cp-strength-bar');
+        const fill = document.getElementById('cp-strength-fill');
+        const text = document.getElementById('cp-strength-text');
+
+        if (!val) { bar.style.display = 'none'; text.style.display = 'none'; return; }
+        bar.style.display = 'block'; text.style.display = 'block';
+
+        const hasLength = val.length >= 8;
+        const hasUpper = /[A-Z]/.test(val);
+        const hasNumber = /[0-9]/.test(val);
+        const hasSpecial = /[^A-Za-z0-9]/.test(val);
+
+        let score = [hasLength, hasUpper, hasNumber, hasSpecial].filter(Boolean).length;
+        const levels = [
+            { color: '#ef4444', label: 'weak', width: '25%' },
+            { color: '#f59e0b', label: 'fair', width: '50%' },
+            { color: '#3b82f6', label: 'good', width: '75%' },
+            { color: '#22c55e', label: 'strong', width: '100%' }
+        ];
+        const level = levels[score - 1] || levels[0];
+        fill.style.background = level.color;
+        fill.style.width = level.width;
+        text.style.color = level.color;
+        text.textContent = `password strength: ${level.label}`;
+
+        clearPassErrors();
+        checkPassMatch();
+    });
+
+    document.getElementById('cp-confirm').addEventListener('input', function() {
+        clearPassErrors();
+        checkPassMatch();
+    });
+
+    function checkPassMatch() {
+        const p1 = document.getElementById('cp-new').value;
+        const p2 = document.getElementById('cp-confirm').value;
+        const ind = document.getElementById('cp-match-indicator');
+
+        if (!p2) { ind.style.display = 'none'; return; }
+        ind.style.display = 'block';
+        if (p1 === p2) {
+            ind.style.color = '#16a34a';
+            ind.textContent = 'passwords match';
+        } else {
+            ind.style.color = '#ef4444';
+            ind.textContent = 'passwords do not match';
+        }
+    }
+
+    function clearPassErrors() {
+        ['cp-current', 'cp-new', 'cp-confirm'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('error');
+            const err = document.getElementById(`${id}-error`);
+            if (err) { err.textContent = ''; err.classList.remove('show'); }
+        });
+        document.getElementById('pass-error').classList.remove('show');
+        document.getElementById('pass-success').classList.remove('show');
+    }
+
+    document.getElementById('cp-current').addEventListener('blur', function() {
+        const val = this.value;
+        if (!val) {
+            document.getElementById('cp-current').classList.add('error');
+            document.getElementById('cp-current-error').textContent = 'current password is required';
+            document.getElementById('cp-current-error').classList.add('show');
+        }
+    });
+
+    document.getElementById('cp-new').addEventListener('blur', function() {
+        const val = this.value;
+        if (!val) {
+            document.getElementById('cp-new').classList.add('error');
+            document.getElementById('cp-new-error').textContent = 'new password is required';
+            document.getElementById('cp-new-error').classList.add('show');
+        } else if (val.length < 8) {
+            document.getElementById('cp-new').classList.add('error');
+            document.getElementById('cp-new-error').textContent = 'password must be at least 8 characters';
+            document.getElementById('cp-new-error').classList.add('show');
+        }
+    });
+
+    document.getElementById('cp-confirm').addEventListener('blur', function() {
+        const val = this.value;
+        const p1 = document.getElementById('cp-new').value;
+        if (!val) {
+            document.getElementById('cp-confirm').classList.add('error');
+            document.getElementById('cp-confirm-error').textContent = 'confirm new password is required';
+            document.getElementById('cp-confirm-error').classList.add('show');
+        } else if (val !== p1) {
+            document.getElementById('cp-confirm').classList.add('error');
+            document.getElementById('cp-confirm-error').textContent = 'passwords do not match';
+            document.getElementById('cp-confirm-error').classList.add('show');
+        }
+    });
+
+    async function handleChangePassword() {
+        clearPassErrors();
+        const pCurrent = document.getElementById('cp-current').value;
+        const p1 = document.getElementById('cp-new').value;
+        const p2 = document.getElementById('cp-confirm').value;
+        const errors = [];
+
+        if (!pCurrent) {
+            document.getElementById('cp-current').classList.add('error');
+            document.getElementById('cp-current-error').textContent = 'current password is required';
+            document.getElementById('cp-current-error').classList.add('show');
+            errors.push('current password is required');
+        }
+
+        if (!p1) {
+            document.getElementById('cp-new').classList.add('error');
+            document.getElementById('cp-new-error').textContent = 'new password is required';
+            document.getElementById('cp-new-error').classList.add('show');
+            errors.push('new password is required');
+        } else if (p1.length < 8) {
+            document.getElementById('cp-new').classList.add('error');
+            document.getElementById('cp-new-error').textContent = 'password must be at least 8 characters';
+            document.getElementById('cp-new-error').classList.add('show');
+            errors.push('password must be at least 8 characters');
+        }
+
+        if (!p2) {
+            document.getElementById('cp-confirm').classList.add('error');
+            document.getElementById('cp-confirm-error').textContent = 'confirm new password is required';
+            document.getElementById('cp-confirm-error').classList.add('show');
+            errors.push('confirm new password is required');
+        } else if (p1 !== p2) {
+            document.getElementById('cp-confirm').classList.add('error');
+            document.getElementById('cp-confirm-error').textContent = 'passwords do not match';
+            document.getElementById('cp-confirm-error').classList.add('show');
+            errors.push('passwords do not match');
+        }
+
+        if (errors.length > 0) {
+            document.getElementById('pass-error-list').innerHTML = errors.map(e => `<li>${e}</li>`).join('');
+            document.getElementById('pass-error').classList.add('show');
+            return;
+        }
+
+        const btn = document.getElementById('btn-change-pass');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> updating password...';
+
+        try {
+            const res = await fetch('http://localhost:8000/auth/change-password', {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({
+                    current_password: pCurrent,
+                    new_password: p1
+                })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                document.getElementById('cp-current').value = '';
+                document.getElementById('cp-new').value = '';
+                document.getElementById('cp-confirm').value = '';
+                document.getElementById('cp-strength-bar').style.display = 'none';
+                document.getElementById('cp-strength-text').style.display = 'none';
+                document.getElementById('cp-match-indicator').style.display = 'none';
+                document.getElementById('pass-success-msg').textContent = 'password updated successfully';
+                document.getElementById('pass-success').classList.add('show');
+            } else {
+                document.getElementById('pass-error-list').innerHTML = `<li>${data.detail || 'password update failed'}</li>`;
+                document.getElementById('pass-error').classList.add('show');
+            }
+        } catch(e) {
+            document.getElementById('pass-error-list').innerHTML = '<li>connection failed</li>';
+            document.getElementById('pass-error').classList.add('show');
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = 'update password';
+    }
+
+    async function generatePayslip() {
+        const empId = localStorage.getItem('emp_id');
+        if (!empId || empId === 'null') { alert('no linked employee record found'); return; }
+        const m = document.getElementById('ps-month').value;
+        const y = document.getElementById('ps-year').value;
+
+        try {
+            const res = await fetch(`http://localhost:8000/employees/${empId}/payslip?month=${m}&year=${y}`, {
+                headers: authHeaders()
+            });
+            const d = await res.json();
+            if (res.ok) {
+                document.getElementById('ps-emp-name').textContent = `${d.employee_name} (${d.position})`;
+                document.getElementById('ps-emp-code').textContent = `code: ${d.employee_code || 'N/A'}`;
+                document.getElementById('ps-period').textContent = `${d.month}/${d.year}`;
+                document.getElementById('ps-base').textContent = `₹${d.base_salary.toLocaleString()}`;
+                document.getElementById('ps-days-m').textContent = `${d.days_in_month} days`;
+                document.getElementById('ps-daily').textContent = `₹${d.daily_rate.toLocaleString()}`;
+                document.getElementById('ps-present').textContent = `${d.present_days} days`;
+
+                document.getElementById('ps-half-cut').textContent = `-₹${d.half_day_deduction.toLocaleString()}`;
+                document.getElementById('ps-absent-cut').textContent = `-₹${d.absent_deduction.toLocaleString()}`;
+                document.getElementById('ps-unpaid-cut').textContent = `-₹${d.unpaid_leave_deduction.toLocaleString()}`;
+                document.getElementById('ps-total-ded').textContent = `-₹${d.total_deductions.toLocaleString()}`;
+                document.getElementById('ps-net').textContent = `₹${d.net_salary.toLocaleString()}`;
+
+                document.getElementById('payslip-result').style.display = 'block';
+            } else {
+                alert(d.detail || 'failed to generate payslip');
+            }
+        } catch(e) {
+            alert('connection error while generating payslip');
+        }
+    }
+
+    loadSettings();
+</script>
+</body>
+</html>

@@ -12,6 +12,8 @@ function clearAuth() {
     localStorage.removeItem('token');
     localStorage.removeItem('is_admin');
     localStorage.removeItem('email');
+    localStorage.removeItem('emp_id');
+    localStorage.removeItem('employee_code');
 }
 
 // Get token

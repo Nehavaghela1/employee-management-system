@@ -9,39 +9,65 @@
 <body>
 
 <nav class="navbar">
-    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <a href="dashboard.html" class="navbar-brand"><svg class="icon"><use href="#i-building"></use></svg> EMS</a>
     <div class="navbar-nav">
         <a href="dashboard.html" class="nav-link">Dashboard</a>
-        <a href="employees.html" class="nav-link">Employees</a>
-        <a href="departments.html" class="nav-link">Departments</a>
+        <a href="employees.html" class="nav-link" id="emp-link" style="display:none">Employees</a>
+        <a href="departments.html" class="nav-link" id="dept-link" style="display:none">Departments</a>
         <a href="attendance.html" class="nav-link">Attendance</a>
         <a href="leaves.html" class="nav-link active">Leaves</a>
-        <a href="admin.html" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none"><svg class="icon"><use href="#i-settings"></use></svg> Admin</a>
     </div>
     <div class="navbar-user">
         <span class="user-badge" id="user-email"></span>
         <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <a href="settings.html" class="nav-link">⚙️ settings</a>
         <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
     </div>
 </nav>
 
 <div class="main-content">
 
+    <!-- Annual Leave Balance Widget (30 Days Cap) -->
+    <div class="card" style="margin-bottom:20px;background:linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);border:1px solid #bfdbfe">
+        <div class="card-header" style="border:none;padding-bottom:8px">
+            <div class="card-title" style="color:#1e40af"><svg class="icon"><use href="#i-calendar"></use></svg> annual leave balance (30 days/year)</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:12px;margin-top:8px">
+            <div style="background:white;padding:12px;border-radius:8px;border:1px solid #93c5fd;text-align:center">
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Yearly Allowance</div>
+                <div style="font-size:22px;font-weight:700;color:#1e40af">30 days</div>
+            </div>
+            <div style="background:white;padding:12px;border-radius:8px;border:1px solid #93c5fd;text-align:center">
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Approved / Used</div>
+                <div style="font-size:22px;font-weight:700;color:#2563eb" id="bal-used">0 days</div>
+            </div>
+            <div style="background:white;padding:12px;border-radius:8px;border:1px solid #93c5fd;text-align:center">
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Remaining Balance</div>
+                <div style="font-size:22px;font-weight:700;color:#16a34a" id="bal-remaining">30 days</div>
+            </div>
+            <div style="background:white;padding:12px;border-radius:8px;border:1px solid #93c5fd;text-align:center">
+                <div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600">Unpaid / Excess</div>
+                <div style="font-size:22px;font-weight:700;color:#dc2626" id="bal-unpaid">0 days</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Request leave -->
     <div class="card">
         <div class="card-header">
-            <div class="card-title">📋 request leave</div>
+            <div class="card-title"><svg class="icon"><use href="#i-calendar"></use></svg> request leave</div>
         </div>
 
         <div class="alert alert-error" id="leave-error">
-            <span class="alert-icon">⚠️</span>
+            <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-alert-triangle"></use></svg></span>
             <div class="alert-content">
                 <div class="alert-title">please fix the following:</div>
                 <ul class="alert-list" id="leave-error-list"></ul>
             </div>
         </div>
         <div class="alert alert-success" id="leave-success">
-            <span class="alert-icon">✅</span>
+            <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-check-circle"></use></svg></span>
             <div class="alert-content"><div id="leave-success-msg"></div></div>
         </div>
 
@@ -82,7 +108,7 @@
     <!-- Leave records -->
     <div class="card">
         <div class="card-header">
-            <div class="card-title">📂 leave requests</div>
+            <div class="card-title"><svg class="icon"><use href="#i-calendar"></use></svg> leave requests</div>
         </div>
         <div class="search-bar">
             <input type="number" id="filter-emp" placeholder="filter by employee id">
@@ -117,13 +143,28 @@
     </div>
 </div>
 
+<script src="js/icons.js"></script>
 <script src="js/auth.js"></script>
 <script>
     requireLogin();
     document.getElementById('user-email').textContent = getCurrentEmail();
+    
+    const userEmpId = localStorage.getItem('emp_id');
+
     if (isAdmin()) {
         document.getElementById('admin-badge').style.display = 'inline';
         document.getElementById('admin-link').style.display = 'inline';
+        if (document.getElementById('emp-link')) document.getElementById('emp-link').style.display = 'inline';
+        if (document.getElementById('dept-link')) document.getElementById('dept-link').style.display = 'inline';
+    } else {
+        if (userEmpId && userEmpId !== 'null') {
+            document.getElementById('l-empid').value = userEmpId;
+            document.getElementById('l-empid').readOnly = true;
+            document.getElementById('l-empid').style.background = '#f8fafc';
+            document.getElementById('filter-emp').value = userEmpId;
+            document.getElementById('filter-emp').readOnly = true;
+            document.getElementById('filter-emp').style.background = '#f8fafc';
+        }
     }
 
     // Set min date to today
@@ -136,7 +177,7 @@
     });
 
     async function requestLeave() {
-        const empId = document.getElementById('l-empid').value;
+        const empId = document.getElementById('l-empid').value || userEmpId;
         const type = document.getElementById('l-type').value;
         const start = document.getElementById('l-start').value;
         const end = document.getElementById('l-end').value;
@@ -213,7 +254,11 @@
     }
 
     async function loadLeaves() {
-        const emp = document.getElementById('filter-emp').value;
+        let emp = document.getElementById('filter-emp').value;
+        if (!isAdmin() && userEmpId && userEmpId !== 'null') {
+            emp = userEmpId;
+        }
+
         const status = document.getElementById('filter-status').value;
         let url = 'http://localhost:8000/leaves/?';
         if (emp) url += `employee_id=${emp}&`;
@@ -224,9 +269,9 @@
 
         const statusColors = {pending: 'badge-yellow', approved: 'badge-green', rejected: 'badge-red'};
 
-        if (!data.length) {
+        if (!data || !data.length) {
             document.getElementById('leaves-table').innerHTML =
-                `<tr><td colspan="8"><div class="empty-state"><div class="icon">📋</div><p>no leave requests found</p></div></td></tr>`;
+                `<tr><td colspan="8"><div class="empty-state"><svg class="icon"><use href="#i-calendar"></use></svg><p>no leave requests found</p></div></td></tr>`;
             return;
         }
 
@@ -238,7 +283,7 @@
                 <td>${l.start_date}</td>
                 <td>${l.end_date}</td>
                 <td style="color:#64748b">${l.reason || '—'}</td>
-                <td><span class="badge ${statusColors[l.status]}">${l.status}</span></td>
+                <td><span class="badge ${statusColors[l.status] || 'badge-gray'}">${l.status}</span></td>
                 <td>
                     ${isAdmin() && l.status === 'pending' ? `
                         <button class="btn btn-success btn-sm" onclick="updateStatus(${l.id},'approved')">approve</button>
@@ -270,12 +315,29 @@
     }
 
     function clearFilter() {
-        document.getElementById('filter-emp').value = '';
+        if (isAdmin()) {
+            document.getElementById('filter-emp').value = '';
+        }
         document.getElementById('filter-status').value = '';
         loadLeaves();
     }
 
+    async function loadLeaveBalance(empId) {
+        if (!empId) empId = localStorage.getItem('emp_id');
+        if (!empId || empId === 'null') return;
+        try {
+            const res = await fetch(`http://localhost:8000/leaves/balance/${empId}`, { headers: authHeaders() });
+            if (res.ok) {
+                const b = await res.json();
+                document.getElementById('bal-used').textContent = `${b.used_days} days`;
+                document.getElementById('bal-remaining').textContent = `${b.remaining_days} days`;
+                document.getElementById('bal-unpaid').textContent = `${b.unpaid_days} days`;
+            }
+        } catch(e) {}
+    }
+
     loadLeaves();
+    loadLeaveBalance();
 </script>
 </body>
 </html>

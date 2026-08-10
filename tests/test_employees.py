@@ -32,15 +32,16 @@ def test_create_employee_without_token():
 def test_create_employee_with_token():
     import time
     token = get_token()
-    unique_email = f"pytest.emp{int(time.time())}@gmail.com"
+    unique_ts = int(time.time())
+    unique_email = f"pytest.emp{unique_ts}@gmail.com"
     response = client.post("/employees/", json={
-        "first_name": "Pytest",
+        "first_name": f"Pytest{unique_ts}",
         "last_name": "Employee",
         "email": unique_email,
         "position": "Developer"
     }, headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
-    assert response.json()["first_name"] == "Pytest"
+    assert response.json()["first_name"] == f"Pytest{unique_ts}"
 
 def test_get_employee_not_found():
     response = client.get("/employees/99999")
@@ -55,3 +56,15 @@ def test_pagination():
     response = client.get("/employees/?page=1&limit=2")
     assert response.status_code == 200
     assert len(response.json()) <= 2
+
+def test_sort_by_salary_nullslast():
+    response = client.get("/employees/?sort_by=salary&order=desc")
+    assert response.status_code == 200
+    data = response.json()
+    # Ensure that any non-null salaries come before null salaries
+    has_seen_null = False
+    for emp in data:
+        if emp.get("salary") is None:
+            has_seen_null = True
+        else:
+            assert not has_seen_null, "Non-null salary appeared after a null salary"

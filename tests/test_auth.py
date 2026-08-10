@@ -54,3 +54,31 @@ def test_login_nonexistent_user():
         "password": "12345678"
     })
     assert response.status_code == 401
+
+def test_change_password():
+    import time
+    email = f"chgpass{int(time.time())}@gmail.com"
+    client.post("/auth/register", json={
+        "email": email,
+        "username": f"chgpass{int(time.time())}",
+        "password": "oldpassword123"
+    })
+    login_res = client.post("/auth/login", json={
+        "email": email,
+        "password": "oldpassword123"
+    })
+    token = login_res.json()["access_token"]
+
+    # Change password
+    chg_res = client.post("/auth/change-password", json={
+        "current_password": "oldpassword123",
+        "new_password": "newpassword123"
+    }, headers={"Authorization": f"Bearer {token}"})
+    assert chg_res.status_code == 200
+
+    # Verify login with new password works
+    new_login = client.post("/auth/login", json={
+        "email": email,
+        "password": "newpassword123"
+    })
+    assert new_login.status_code == 200

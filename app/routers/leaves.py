@@ -25,7 +25,13 @@ def get_leaves(
     if status:
         query = query.filter(Leave.status == status)
     skip = (page - 1) * limit
-    return query.offset(skip).limit(limit).all()
+    leaves = query.offset(skip).limit(limit).all()
+
+    for l in leaves:
+        if l.employee:
+            l.employee_code = l.employee.employee_code
+            l.employee_name = f"{l.employee.first_name} {l.employee.last_name or ''}".strip()
+    return leaves
 
 @router.post("/", response_model=LeaveResponse)
 def create_leave(
@@ -82,6 +88,40 @@ def create_leave(
     db.commit()
     db.refresh(new_leave)
     return new_leave
+
+@router.get("/balance/{employee_id}")
+def get_leave_balance(employee_id: int, year: Optional[int] = None, db: Session = Depends(get_db)):
+    if not year:
+        year = date.today().year
+
+    emp = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    leaves = db.query(Leave).filter(
+        Leave.employee_id == employee_id,
+        Leave.status == "approved"
+    ).all()
+
+    used_days = 0
+    for l in leaves:
+        if l.start_date.year == year:
+            days = (l.end_date - l.start_date).days + 1
+            used_days += max(1, days)
+
+    annual_allowance = 30
+    remaining_days = max(0, annual_allowance - used_days)
+    unpaid_days = max(0, used_days - annual_allowance)
+
+    return {
+        "employee_id": employee_id,
+        "employee_code": emp.employee_code,
+        "year": year,
+        "annual_allowance": annual_allowance,
+        "used_days": used_days,
+        "remaining_days": remaining_days,
+        "unpaid_days": unpaid_days
+    }
 
 @router.get("/{leave_id}", response_model=LeaveResponse)
 def get_leave(leave_id: int, db: Session = Depends(get_db)):

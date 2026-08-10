@@ -10,14 +10,14 @@
 
 <div class="auth-card">
     <div class="auth-logo">
-        <div style="font-size:48px">🏢</div>
+        <div class="auth-logo-icon"><svg class="icon"><use href="#i-building"></use></svg></div>
         <h1>Welcome back</h1>
         <p>Sign in to Employee Management System</p>
     </div>
 
     <!-- Error box — shows multiple errors together -->
     <div class="alert alert-error" id="error-box">
-        <span class="alert-icon">⚠️</span>
+        <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-alert-triangle"></use></svg></span>
         <div class="alert-content">
             <div class="alert-title">Please fix the following:</div>
             <ul class="alert-list" id="error-list"></ul>
@@ -40,11 +40,16 @@
         Sign in
     </button>
 
+    <div style="text-align:center;margin-top:12px">
+        <a href="forgot-password.html" style="font-size:13px;color:#64748b">forgot password?</a>
+    </div>
+
     <div class="auth-link">
         don't have an account? <a href="register.html">register here</a>
     </div>
 </div>
 
+<script src="js/icons.js"></script>
 <script src="js/auth.js"></script>
 <script>
     // If already logged in — go to dashboard
@@ -134,6 +139,8 @@
             });
             const meData = await meRes.json();
             localStorage.setItem('is_admin', meData.is_admin);
+            localStorage.setItem('emp_id', meData.employee_id || '');
+            localStorage.setItem('employee_code', meData.employee_code || '');
 
             window.location.href = 'dashboard.html';
         } else {

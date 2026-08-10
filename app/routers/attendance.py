@@ -11,6 +11,61 @@ from app.models.user import User
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 
+from fastapi.responses import Response
+
+@router.get("/export")
+def export_attendance_csv(
+    employee_id: Optional[int] = None,
+    employee_code: Optional[str] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Attendance)
+    if employee_id:
+        query = query.filter(Attendance.employee_id == employee_id)
+    if start_date:
+        query = query.filter(Attendance.date >= start_date)
+    if end_date:
+        query = query.filter(Attendance.date <= end_date)
+    records = query.all()
+
+    filtered = []
+    for att in records:
+        if month and att.date.month != month:
+            continue
+        if year and att.date.year != year:
+            continue
+        if employee_code:
+            emp_code = att.employee.employee_code if att.employee else ""
+            if employee_code.lower() not in emp_code.lower():
+                continue
+        filtered.append(att)
+
+    csv_lines = ["ID,Date,Day of Week,Employee Code,Employee Name,Check In,Check Out,Hours Worked,Status"]
+    for r in filtered:
+        emp_code = r.employee.employee_code if r.employee else f"EMP{str(r.employee_id).zfill(3)}"
+        emp_name = f"{r.employee.first_name} {r.employee.last_name or ''}".strip() if r.employee else f"Employee #{r.employee_id}"
+        cin = r.check_in.strftime("%H:%M:%S") if r.check_in else "-"
+        cout = r.check_out.strftime("%H:%M:%S") if r.check_out else "-"
+        day_name = r.date.strftime("%A")
+        hrs = 0.0
+        if r.check_in and r.check_out:
+            cin_dt = datetime.combine(r.date, r.check_in)
+            cout_dt = datetime.combine(r.date, r.check_out)
+            hrs = round((cout_dt - cin_dt).total_seconds() / 3600.0, 2)
+        line = f'"{r.id}","{r.date}","{day_name}","{emp_code}","{emp_name}","{cin}","{cout}","{hrs}","{r.status}"'
+        csv_lines.append(line)
+
+    csv_content = "\n".join(csv_lines)
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=attendance_export.csv"}
+    )
+
 @router.get("/", response_model=List[AttendanceResponse])
 def get_attendance(
     employee_id: Optional[int] = None,
@@ -22,7 +77,22 @@ def get_attendance(
         query = query.filter(Attendance.employee_id == employee_id)
     if date_filter:
         query = query.filter(Attendance.date == date_filter)
-    return query.all()
+    records = query.all()
+    for att in records:
+        if att.employee:
+            att.employee_code = att.employee.employee_code
+            att.employee_name = f"{att.employee.first_name} {att.employee.last_name or ''}".strip()
+        att.day_name = att.date.strftime("%A")
+        if att.check_in and att.check_out:
+            cin_dt = datetime.combine(att.date, att.check_in)
+            cout_dt = datetime.combine(att.date, att.check_out)
+            hrs = round((cout_dt - cin_dt).total_seconds() / 3600.0, 2)
+            att.hours_worked = hrs
+            if hrs < 8.0 and hrs > 0 and att.status == "present":
+                att.status = "half_day"
+        else:
+            att.hours_worked = 0.0
+    return records
 
 @router.post("/", response_model=AttendanceResponse)
 def mark_attendance(

@@ -9,18 +9,19 @@
 <body>
 
 <nav class="navbar">
-    <a href="dashboard.html" class="navbar-brand">🏢 EMS</a>
+    <a href="dashboard.html" class="navbar-brand"><svg class="icon"><use href="#i-building"></use></svg> EMS</a>
     <div class="navbar-nav">
         <a href="dashboard.html" class="nav-link">Dashboard</a>
-        <a href="employees.html" class="nav-link">Employees</a>
-        <a href="departments.html" class="nav-link active">Departments</a>
+        <a href="employees.html" class="nav-link" id="emp-link" style="display:none">Employees</a>
+        <a href="departments.html" class="nav-link active" id="dept-link" style="display:none">Departments</a>
         <a href="attendance.html" class="nav-link">Attendance</a>
         <a href="leaves.html" class="nav-link">Leaves</a>
-        <a href="admin.html" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+        <a href="admin.html" class="nav-link" id="admin-link" style="display:none"><svg class="icon"><use href="#i-settings"></use></svg> Admin</a>
     </div>
     <div class="navbar-user">
         <span class="user-badge" id="user-email"></span>
         <span class="admin-badge" id="admin-badge" style="display:none">ADMIN</span>
+        <a href="settings.html" class="nav-link">⚙️ settings</a>
         <button class="btn btn-secondary btn-sm" onclick="logout()">logout</button>
     </div>
 </nav>
@@ -28,12 +29,12 @@
 <div class="main-content">
     <div class="card">
         <div class="card-header">
-            <div class="card-title">🏛️ departments</div>
+            <div class="card-title"><svg class="icon"><use href="#i-building"></use></svg> departments</div>
             <button class="btn btn-primary btn-sm" onclick="openCreateModal()">+ add department</button>
         </div>
 
         <div class="alert alert-success" id="success-msg" style="display:none">
-            <span class="alert-icon">✅</span>
+            <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-check-circle"></use></svg></span>
             <div class="alert-content"><div id="success-text"></div></div>
         </div>
 
@@ -56,16 +57,16 @@
     </div>
 </div>
 
-<!-- MODAL -->
+<!-- CREATE/EDIT MODAL -->
 <div class="modal-overlay" id="modal">
     <div class="modal">
         <div class="modal-header">
             <div class="modal-title" id="modal-title">add department</div>
-            <button class="modal-close" onclick="closeModal()">✕</button>
+            <button class="modal-close" onclick="closeModal()" aria-label="Close"><svg class="icon"><use href="#i-x"></use></svg></button>
         </div>
 
         <div class="alert alert-error" id="modal-error">
-            <span class="alert-icon">⚠️</span>
+            <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-alert-triangle"></use></svg></span>
             <div class="alert-content">
                 <div class="alert-title">please fix the following:</div>
                 <ul class="alert-list" id="modal-error-list"></ul>
@@ -90,13 +91,16 @@
     </div>
 </div>
 
+<script src="js/icons.js"></script>
 <script src="js/auth.js"></script>
 <script>
-    requireLogin();
+    requireAdmin();
     document.getElementById('user-email').textContent = getCurrentEmail();
     if (isAdmin()) {
         document.getElementById('admin-badge').style.display = 'inline';
         document.getElementById('admin-link').style.display = 'inline';
+        if (document.getElementById('emp-link')) document.getElementById('emp-link').style.display = 'inline';
+        if (document.getElementById('dept-link')) document.getElementById('dept-link').style.display = 'inline';
     }
 
     let editingId = null;
@@ -113,7 +117,7 @@
 
         if (!data.length) {
             document.getElementById('dept-table').innerHTML =
-                `<tr><td colspan="5"><div class="empty-state"><div class="icon">🏛️</div><p>no departments yet</p></div></td></tr>`;
+                `<tr><td colspan="5"><div class="empty-state"><svg class="icon"><use href="#i-building"></use></svg><p>no departments yet</p></div></td></tr>`;
             return;
         }
 

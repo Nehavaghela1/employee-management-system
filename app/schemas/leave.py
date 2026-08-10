@@ -11,13 +11,15 @@ class LeaveUpdate(BaseModel):
     status:Optional[str]=None
     reason:Optional[str]=None
 class LeaveResponse(BaseModel):
-    id:int
-    employee_id:int
-    leave_type:str
-    start_date:date
-    end_date :date 
-    reason:Optional[str]
-    status:str
-    created_at:datetime
+    id: int
+    employee_id: int
+    employee_code: Optional[str] = None
+    employee_name: Optional[str] = None
+    leave_type: str
+    start_date: date
+    end_date: date 
+    reason: Optional[str] = None
+    status: str
+    created_at: datetime
     class Config:
-        from_attributes=True
+        from_attributes = True
