@@ -186,7 +186,6 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>#</th>
                             <th>employee</th>
                             <th>type</th>
                             <th>from</th>
@@ -197,7 +196,7 @@
                         </tr>
                     </thead>
                     <tbody id="pending-table">
-                        <tr><td colspan="8" style="text-align:center;padding:30px;color:#64748b">loading...</td></tr>
+                        <tr><td colspan="7" style="text-align:center;padding:30px;color:#64748b">loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -384,7 +383,6 @@
                     : `emp #${l.employee_id}`;
                 return `
                 <tr class="leave-row-pending">
-                    <td style="color:#64748b">#${l.id}</td>
                     <td>${empDisplay}</td>
                     <td><span class="badge badge-blue">${l.leave_type}</span></td>
                     <td>${l.start_date}</td>

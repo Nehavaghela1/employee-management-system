@@ -60,11 +60,11 @@
             <table>
                 <thead>
                     <tr>
-                        <th>id</th>
                         <th>employee</th>
                         <th>type</th>
                         <th>from</th>
                         <th>to</th>
+                        <th>days</th>
                         <th>reason</th>
                         <th>actions</th>
                     </tr>
@@ -100,11 +100,11 @@
         });
         const data = await res.json();
         if (res.ok) {
-            document.getElementById('admin-success-msg').textContent = data.message;
+            document.getElementById('admin-success-msg').textContent = data.message || 'user promoted to admin';
             document.getElementById('admin-success').style.display = 'flex';
             document.getElementById('promote-id').value = '';
         } else {
-            document.getElementById('admin-error-msg').textContent = data.detail || 'failed to promote user';
+            document.getElementById('admin-error-msg').textContent = data.detail || 'promotion failed';
             document.getElementById('admin-error').style.display = 'flex';
         }
     }
@@ -126,13 +126,14 @@
             const empDisplay = l.employee_code
                 ? `<strong>${l.employee_code}</strong> ${l.employee_name ? `<span style="color:#64748b;font-size:12px">(${l.employee_name})</span>` : ''}`
                 : `emp #${l.employee_id}`;
+            const numDays = Math.ceil((new Date(l.end_date) - new Date(l.start_date)) / (1000*60*60*24)) + 1;
             return `
             <tr>
-                <td style="color:#64748b">#${l.id}</td>
                 <td>${empDisplay}</td>
                 <td><span class="badge badge-blue">${l.leave_type}</span></td>
                 <td>${l.start_date}</td>
                 <td>${l.end_date}</td>
+                <td><span class="badge badge-gray">${numDays}d</span></td>
                 <td style="color:#64748b">${l.reason || '—'}</td>
                 <td>
                     <button class="btn btn-success btn-sm" onclick="updateLeave(${l.id},'approved')">approve</button>

@@ -135,8 +135,6 @@
     document.getElementById('user-email').textContent = getCurrentEmail();
     
     const userEmpId = localStorage.getItem('emp_id');
-
-    if (isAdmin()) {
     const userEmpCode = localStorage.getItem('employee_code');
 
     if (isAdmin()) {
@@ -280,50 +278,56 @@
         let url = 'http://localhost:8000/attendance/?';
         if (date) url += `date_filter=${date}`;
 
-        const res = await fetch(url, {headers: authHeaders()});
-        let data = await res.json();
+        try {
+            const res = await fetch(url, {headers: authHeaders()});
+            let data = await res.json();
+            if (!Array.isArray(data)) data = [];
 
-        if (empCodeFilter && data && data.length) {
-            data = data.filter(a => {
-                const c = a.employee_code || '';
-                return c.toLowerCase().includes(empCodeFilter.toLowerCase());
-            });
+            if (empCodeFilter && data.length) {
+                data = data.filter(a => {
+                    const c = a.employee_code || '';
+                    return c.toLowerCase().includes(empCodeFilter.toLowerCase());
+                });
+            }
+
+            const statusColors = {
+                present: 'badge-green',
+                absent: 'badge-red',
+                half_day: 'badge-yellow',
+                work_from_home: 'badge-blue',
+                on_leave: 'badge-gray'
+            };
+
+            if (!data || !data.length) {
+                document.getElementById('att-table').innerHTML =
+                    `<tr><td colspan="9"><div class="empty-state"><svg class="icon"><use href="#i-folder"></use></svg><p>no records found</p></div></td></tr>`;
+                return;
+            }
+
+            document.getElementById('att-table').innerHTML = data.map(a => {
+                const isWeekend = a.day_name === 'Saturday' || a.day_name === 'Sunday';
+                const rowStyle = isWeekend ? 'style="background:#fef2f2;border-left:3px solid #ef4444"' : '';
+                const empCode = a.employee_code || ('EMP' + String(a.employee_id).padStart(3, '0'));
+                const empName = a.employee_name ? `<span style="font-size:12px;color:#64748b">(${a.employee_name})</span>` : '';
+                const hrsDisplay = a.hours_worked ? `${a.hours_worked.toFixed(1)} hrs` : '0.0 hrs';
+
+                return `
+                <tr ${rowStyle}>
+                    <td><strong style="color:#1e40af">${empCode}</strong></td>
+                    <td>${empName || ('emp #' + a.employee_id)}</td>
+                    <td>${a.date}</td>
+                    <td><span style="font-size:12px;font-weight:600;color:${isWeekend?'#dc2626':'#64748b'}">${a.day_name || ''}</span></td>
+                    <td>${a.check_in || '—'}</td>
+                    <td>${a.check_out || '<span style="color:#f59e0b">pending</span>'}</td>
+                    <td><span class="badge ${a.hours_worked && a.hours_worked < 8 ? 'badge-yellow' : 'badge-gray'}">${hrsDisplay}</span></td>
+                    <td><span class="badge ${statusColors[a.status] || 'badge-gray'}">${a.status.replace('_',' ')}</span></td>
+                    ${isAdmin() ? `<td><button class="btn btn-danger btn-sm" onclick="deleteAtt(${a.id})">delete</button></td>` : ''}
+                </tr>`;
+            }).join('');
+        } catch(e) {
+            console.error('loadAttendance error', e);
+            document.getElementById('att-table').innerHTML = `<tr><td colspan="9" style="text-align:center;padding:30px;color:#ef4444">failed to load attendance records</td></tr>`;
         }
-
-        const statusColors = {
-            present: 'badge-green',
-            absent: 'badge-red',
-            half_day: 'badge-yellow',
-            work_from_home: 'badge-blue',
-            on_leave: 'badge-gray'
-        };
-
-        if (!data || !data.length) {
-            document.getElementById('att-table').innerHTML =
-                `<tr><td colspan="8"><div class="empty-state"><svg class="icon"><use href="#i-folder"></use></svg><p>no records found</p></div></td></tr>`;
-            return;
-        }
-
-        document.getElementById('att-table').innerHTML = data.map(a => {
-            const isWeekend = a.day_name === 'Saturday' || a.day_name === 'Sunday';
-            const rowStyle = isWeekend ? 'style="background:#fef2f2;border-left:3px solid #ef4444"' : '';
-            const empCode = a.employee_code || ('EMP' + String(a.employee_id).padStart(3, '0'));
-            const empName = a.employee_name ? `<span style="font-size:12px;color:#64748b">(${a.employee_name})</span>` : '';
-            const hrsDisplay = a.hours_worked ? `${a.hours_worked.toFixed(1)} hrs` : '0.0 hrs';
-
-            return `
-            <tr ${rowStyle}>
-                <td><strong style="color:#1e40af">${empCode}</strong></td>
-                <td>${empName || ('emp #' + a.employee_id)}</td>
-                <td>${a.date}</td>
-                <td><span style="font-size:12px;font-weight:600;color:${isWeekend?'#dc2626':'#64748b'}">${a.day_name || ''}</span></td>
-                <td>${a.check_in || '—'}</td>
-                <td>${a.check_out || '<span style="color:#f59e0b">pending</span>'}</td>
-                <td><span class="badge ${a.hours_worked && a.hours_worked < 8 ? 'badge-yellow' : 'badge-gray'}">${hrsDisplay}</span></td>
-                <td><span class="badge ${statusColors[a.status] || 'badge-gray'}">${a.status.replace('_',' ')}</span></td>
-                ${isAdmin() ? `<td><button class="btn btn-danger btn-sm" onclick="deleteAtt(${a.id})">delete</button></td>` : ''}
-            </tr>`;
-        }).join('');
     }
 
     function clearFilter() {

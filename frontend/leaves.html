@@ -125,11 +125,11 @@
             <table>
                 <thead>
                     <tr>
-                        <th>id</th>
                         <th>employee</th>
                         <th>type</th>
                         <th>from</th>
                         <th>to</th>
+                        <th>days</th>
                         <th>reason</th>
                         <th>status</th>
                         <th>actions</th>
@@ -282,13 +282,14 @@
             const empDisplay = l.employee_code
                 ? `<strong style="color:#1e40af">${l.employee_code}</strong> ${l.employee_name ? `<span style="font-size:12px;color:#64748b">(${l.employee_name})</span>` : ''}`
                 : `emp #${l.employee_id}`;
+            const numDays = Math.ceil((new Date(l.end_date) - new Date(l.start_date)) / (1000*60*60*24)) + 1;
             return `
             <tr>
-                <td style="color:#64748b">#${l.id}</td>
                 <td>${empDisplay}</td>
                 <td><span class="badge badge-blue">${l.leave_type}</span></td>
                 <td>${l.start_date}</td>
                 <td>${l.end_date}</td>
+                <td><span class="badge badge-gray">${numDays}d</span></td>
                 <td style="color:#64748b">${l.reason || '—'}</td>
                 <td><span class="badge ${statusColors[l.status] || 'badge-gray'}">${l.status}</span></td>
                 <td>
