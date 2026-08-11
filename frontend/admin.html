@@ -74,6 +74,28 @@
                 </tbody>
             </table>
         </div>
+    <!-- System Activity Audit Logs -->
+    <div class="card" style="margin-top:20px">
+        <div class="card-header">
+            <div class="card-title"><svg class="icon"><use href="#i-clock"></use></svg> real-time activity audit logs</div>
+            <button class="btn btn-secondary btn-sm" onclick="loadAuditLogs()">refresh logs</button>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>timestamp</th>
+                        <th>user email</th>
+                        <th>emp code</th>
+                        <th>action</th>
+                        <th>details</th>
+                    </tr>
+                </thead>
+                <tbody id="audit-logs-table">
+                    <tr><td colspan="5" style="text-align:center;padding:30px;color:#64748b">loading activity logs...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
 </div>
@@ -131,8 +153,8 @@
             <tr>
                 <td>${empDisplay}</td>
                 <td><span class="badge badge-blue">${l.leave_type}</span></td>
-                <td>${l.start_date}</td>
-                <td>${l.end_date}</td>
+                <td>${formatDDMMYYYY(l.start_date)}</td>
+                <td>${formatDDMMYYYY(l.end_date)}</td>
                 <td><span class="badge badge-gray">${numDays}d</span></td>
                 <td style="color:#64748b">${l.reason || '—'}</td>
                 <td>
@@ -153,7 +175,36 @@
         if (res.ok) loadPendingLeaves();
     }
 
+    async function loadAuditLogs() {
+        try {
+            const res = await fetch('http://localhost:8000/audit-logs/?limit=50', {
+                headers: authHeaders()
+            });
+            if (!res.ok) return;
+            const logs = await res.json();
+            if (!logs || !logs.length) {
+                document.getElementById('audit-logs-table').innerHTML =
+                    `<tr><td colspan="5" style="text-align:center;padding:20px;color:#64748b">no activity logs found</td></tr>`;
+                return;
+            }
+            document.getElementById('audit-logs-table').innerHTML = logs.map(log => {
+                const ts = new Date(log.timestamp).toLocaleString();
+                const actionBadgeClass = log.action.includes('SUCCESS') || log.action.includes('REACTIVATE') ? 'badge-green' :
+                                         log.action.includes('BLOCKED') || log.action.includes('DEACTIVATE') || log.action.includes('FAILED') ? 'badge-red' : 'badge-blue';
+                return `
+                <tr>
+                    <td style="font-size:12px;color:#64748b">${ts}</td>
+                    <td><strong>${log.user_email || '—'}</strong></td>
+                    <td><strong style="color:#1e40af">${log.employee_code || '—'}</strong></td>
+                    <td><span class="badge ${actionBadgeClass}">${log.action}</span></td>
+                    <td style="font-size:12px;color:#475569">${log.details || '—'}</td>
+                </tr>`;
+            }).join('');
+        } catch(e) {}
+    }
+
     loadPendingLeaves();
+    loadAuditLogs();
 </script>
 </body>
 </html>

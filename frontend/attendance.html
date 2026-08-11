@@ -315,7 +315,7 @@
                 <tr ${rowStyle}>
                     <td><strong style="color:#1e40af">${empCode}</strong></td>
                     <td>${empName || ('emp #' + a.employee_id)}</td>
-                    <td>${a.date}</td>
+                    <td>${formatDDMMYYYY(a.date)}</td>
                     <td><span style="font-size:12px;font-weight:600;color:${isWeekend?'#dc2626':'#64748b'}">${a.day_name || ''}</span></td>
                     <td>${a.check_in || '—'}</td>
                     <td>${a.check_out || '<span style="color:#f59e0b">pending</span>'}</td>
@@ -347,13 +347,14 @@
     }
 
     function exportAttendanceCSV() {
-        const emp = document.getElementById('filter-emp').value;
-        const dt = document.getElementById('filter-date').value;
+        const empEl = document.getElementById('filter-empcode');
+        const dtEl = document.getElementById('filter-date');
+        const empCode = empEl ? empEl.value.trim() : '';
+        const dt = dtEl ? dtEl.value : '';
+
         let url = 'http://localhost:8000/attendance/export?';
-        if (emp) url += `employee_id=${emp}&`;
-        if (dt) {
-            url += `start_date=${dt}&end_date=${dt}&`;
-        }
+        if (empCode) url += `employee_code=${encodeURIComponent(empCode)}&`;
+        if (dt) url += `start_date=${dt}&end_date=${dt}&`;
         window.open(url, '_blank');
     }
 

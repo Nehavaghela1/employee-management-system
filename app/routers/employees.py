@@ -16,19 +16,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 def resequence_employee_codes(db: Session):
-    try:
-        employees = db.query(Employee).order_by(Employee.id.asc()).all()
-        if not employees:
-            return
-        for idx, emp in enumerate(employees, start=1):
-            emp.employee_code = f"TMP_RESYNC_{emp.id}_{idx}"
-        db.flush()
-        for idx, emp in enumerate(employees, start=1):
-            emp.employee_code = f"EMP{str(idx).zfill(3)}"
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error resequencing employee codes: {e}")
+    # Employee codes are now permanent and never re-sequenced upon employee exit/deactivation
+    pass
 
 router = APIRouter(prefix="/employees", tags=["Employees"])
 @router.get("/", response_model=List[EmployeeResponse])
@@ -40,6 +29,8 @@ def get_employees(
     order: Optional[str] = "asc",
     page: int = 1,
     limit: int = 10,
+    offset: Optional[int] = None,
+    skip: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(Employee)
@@ -73,8 +64,14 @@ def get_employees(
     else:
         query = query.order_by(Employee.employee_code.asc() if order == "asc" else Employee.employee_code.desc())
 
-    skip = (page - 1) * limit
-    employees = query.offset(skip).limit(limit).all()
+    if offset is not None:
+        skip_val = offset
+    elif skip is not None:
+        skip_val = skip
+    else:
+        skip_val = (page - 1) * limit
+
+    employees = query.offset(skip_val).limit(limit).all()
     for emp in employees:
         if not emp.employee_code:
             emp.employee_code = f"EMP{str(emp.id).zfill(3)}"
@@ -117,6 +114,9 @@ def create_employee(
         if not dept:
             raise HTTPException(status_code=404, detail="Department not found")
 
+    emp_level = (emp.level or "L3").upper()
+    notice_days = 90 if emp_level == "L1" else 60 if emp_level == "L2" else 30
+
     new_emp = Employee(
         first_name=emp.first_name,
         last_name=emp.last_name,
@@ -126,7 +126,9 @@ def create_employee(
         salary=emp.salary,
         hire_date=emp.hire_date,
         department_id=emp.department_id,
-        user_id=emp.user_id  
+        user_id=emp.user_id,
+        level=emp_level,
+        notice_period_days=notice_days
     )
     db.add(new_emp)
     db.commit()
@@ -280,14 +282,225 @@ def delete_employee(
     current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
+    from app.utils.audit import log_activity
     emp = db.query(Employee).filter(Employee.id == emp_id).first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
-    # Delete related attendance records first
-    db.query(Attendance).filter(Attendance.employee_id == emp_id).delete()
-    db.query(Leave).filter(Leave.employee_id == emp_id).delete()
 
-    db.delete(emp)
+    # Soft deactivate employee & user without deleting historical records
+    emp.is_active = False
+    user = None
+    if emp.user_id:
+        user = db.query(User).filter(User.id == emp.user_id).first()
+    elif emp.email:
+        user = db.query(User).filter(User.email.ilike(emp.email)).first()
+
+    if user:
+        user.is_active = False
+
     db.commit()
-    resequence_employee_codes(db)
-    return {"message": "Employee deleted successfully"}
+    log_activity(db, "DEACTIVATE_EMPLOYEE", user_email=current_user.email, employee_code=emp.employee_code, details=f"Deactivated employee {emp.first_name}")
+    return {"message": f"Employee {emp.employee_code} deactivated successfully. All history preserved."}
+
+@router.post("/{emp_id}/toggle-active")
+def toggle_employee_active(
+    emp_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    from app.utils.audit import log_activity
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    new_status = not emp.is_active
+    emp.is_active = new_status
+
+    user = None
+    if emp.user_id:
+        user = db.query(User).filter(User.id == emp.user_id).first()
+    elif emp.email:
+        user = db.query(User).filter(User.email.ilike(emp.email)).first()
+
+    if user:
+        user.is_active = new_status
+
+    db.commit()
+    action_text = "REACTIVATE_EMPLOYEE" if new_status else "DEACTIVATE_EMPLOYEE"
+    log_activity(db, action_text, user_email=current_user.email, employee_code=emp.employee_code, details=f"Set active={new_status}")
+    return {"message": f"Employee {emp.employee_code} active status updated to {new_status}", "is_active": new_status}
+
+@router.post("/{emp_id}/resign")
+def resign_employee(
+    emp_id: int,
+    payload: Optional[dict] = None,
+    reason: Optional[str] = None,
+    requested_notice_days: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.utils.audit import log_activity
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    if not current_user.is_admin and current_user.email != emp.email and current_user.id != emp.user_id:
+        raise HTTPException(status_code=403, detail="You can only submit resignation for your own account")
+
+    res_reason = (payload.get("reason") if payload and isinstance(payload, dict) else None) or reason
+    req_notice = (payload.get("requested_notice_days") if payload and isinstance(payload, dict) else None) or requested_notice_days
+
+    emp.resignation_status = "pending"
+    if hasattr(emp, "resignation_reason"):
+        emp.resignation_reason = res_reason
+    if hasattr(emp, "requested_notice_days") and req_notice is not None:
+        emp.requested_notice_days = int(req_notice)
+
+    db.commit()
+
+    detail_str = f"Employee {emp.employee_code} ({emp.first_name} {emp.last_name or ''}) submitted resignation request."
+    if res_reason:
+        detail_str += f" Reason: {res_reason}"
+    if req_notice is not None:
+        detail_str += f" Requested Notice: {req_notice} days"
+
+    log_activity(
+        db,
+        "EMPLOYEE_RESIGNED",
+        user_email=current_user.email,
+        employee_code=emp.employee_code,
+        details=detail_str
+    )
+    return {
+        "message": f"Resignation request submitted for {emp.employee_code}. Awaiting admin approval.",
+        "employee_code": emp.employee_code,
+        "resignation_status": "pending",
+        "resignation_reason": res_reason,
+        "requested_notice_days": req_notice
+    }
+
+@router.post("/{emp_id}/approve-resignation")
+def approve_resignation(
+    emp_id: int,
+    payload: Optional[dict] = None,
+    notice_action: Optional[str] = "waived",
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    from app.utils.audit import log_activity
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    n_action = (payload.get("notice_action") if payload and isinstance(payload, dict) else None) or notice_action or "waived"
+
+    emp.resignation_status = "approved"
+    if hasattr(emp, "notice_action"):
+        emp.notice_action = n_action
+    emp.is_active = False
+
+    user = None
+    if emp.user_id:
+        user = db.query(User).filter(User.id == emp.user_id).first()
+    elif emp.email:
+        user = db.query(User).filter(User.email.ilike(emp.email)).first()
+
+    if user:
+        user.is_active = False
+
+    db.commit()
+    log_activity(
+        db,
+        "RESIGNATION_APPROVED",
+        user_email=current_user.email,
+        employee_code=emp.employee_code,
+        details=f"Admin approved resignation for {emp.employee_code}. Notice Action: {n_action}. Account deactivated."
+    )
+    return {"message": f"Resignation approved for {emp.employee_code}. Notice Action: {n_action}."}
+
+@router.post("/{emp_id}/reject-resignation")
+def reject_resignation(
+    emp_id: int,
+    current_user: User = Depends(get_admin_user),
+    db: Session = Depends(get_db)
+):
+    from app.utils.audit import log_activity
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    emp.resignation_status = "rejected"
+    db.commit()
+    log_activity(
+        db,
+        "RESIGNATION_REJECTED",
+        user_email=current_user.email,
+        employee_code=emp.employee_code,
+        details=f"Admin rejected resignation for {emp.employee_code}."
+    )
+    return {"message": f"Resignation rejected for {emp.employee_code}."}
+
+@router.get("/{emp_id}/fnf-settlement")
+def get_fnf_settlement(
+    emp_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    from app.models.leave import Leave
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    if not current_user.is_admin and current_user.email != emp.email and current_user.id != emp.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to view FnF settlement statement")
+
+    base_salary = emp.salary or 0
+    daily_rate = round(base_salary / 30.0, 2)
+
+    leaves = db.query(Leave).filter(Leave.employee_id == emp.id, Leave.status == "approved").all()
+    used_leave_days = 0
+    for l in leaves:
+        if l.start_date and l.end_date:
+            used_leave_days += (l.end_date - l.start_date).days + 1
+
+    annual_allowance = 30
+    unused_leaves = max(0, annual_allowance - used_leave_days)
+    excess_leaves = max(0, used_leave_days - annual_allowance)
+
+    leave_encashment = round(unused_leaves * daily_rate, 2)
+    excess_leave_deduction = round(excess_leaves * daily_rate, 2)
+
+    required_notice = getattr(emp, 'notice_period_days', None) or (90 if (getattr(emp, 'level', 'L3') == 'L1') else 60 if (getattr(emp, 'level', 'L3') == 'L2') else 30)
+    served_notice = getattr(emp, 'requested_notice_days', None)
+    if served_notice is None:
+        served_notice = required_notice
+    shortfall_days = max(0, required_notice - served_notice)
+
+    notice_action = getattr(emp, 'notice_action', 'none') or 'none'
+    if notice_action == 'charged':
+        shortfall_penalty = round(shortfall_days * daily_rate, 2)
+    else:
+        shortfall_penalty = 0.0
+
+    net_fnf = round(base_salary + leave_encashment - excess_leave_deduction - shortfall_penalty, 2)
+
+    return {
+        "employee_id": emp.id,
+        "employee_code": emp.employee_code,
+        "employee_name": f"{emp.first_name} {emp.last_name or ''}".strip(),
+        "level": getattr(emp, 'level', 'L3') or 'L3',
+        "base_salary": base_salary,
+        "daily_rate": daily_rate,
+        "used_leave_days": used_leave_days,
+        "annual_leave_allowance": annual_allowance,
+        "unused_leaves": unused_leaves,
+        "excess_leaves": excess_leaves,
+        "leave_encashment": leave_encashment,
+        "excess_leave_deduction": excess_leave_deduction,
+        "required_notice_days": required_notice,
+        "served_notice_days": served_notice,
+        "shortfall_days": shortfall_days,
+        "notice_action": notice_action,
+        "shortfall_penalty": shortfall_penalty,
+        "net_fnf_settlement": net_fnf
+    }

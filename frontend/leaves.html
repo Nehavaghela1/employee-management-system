@@ -287,8 +287,8 @@
             <tr>
                 <td>${empDisplay}</td>
                 <td><span class="badge badge-blue">${l.leave_type}</span></td>
-                <td>${l.start_date}</td>
-                <td>${l.end_date}</td>
+                <td>${formatDDMMYYYY(l.start_date)}</td>
+                <td>${formatDDMMYYYY(l.end_date)}</td>
                 <td><span class="badge badge-gray">${numDays}d</span></td>
                 <td style="color:#64748b">${l.reason || '—'}</td>
                 <td><span class="badge ${statusColors[l.status] || 'badge-gray'}">${l.status}</span></td>

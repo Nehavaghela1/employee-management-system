@@ -23,9 +23,9 @@ class UserRegister(BaseModel):
         if len(v) < 3:
             raise ValueError('Username must be at least 3 characters')
         return v
-# What user sends when logging in
+# What user sends when logging in (email or employee code or username)
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 # What we send BACK to user (never send password back)

@@ -301,6 +301,36 @@
                     <div style="font-size:24px;font-weight:800;color:#16a34a" id="ps-net">₹0</div>
                 </div>
             </div>
+        <!-- Section 5: Resignation Request -->
+        <div class="card" style="margin-top:24px;border:1px solid #fee2e2">
+            <div class="card-header">
+                <div class="card-title" style="color:#dc2626"><svg class="icon"><use href="#i-alert-triangle"></use></svg> Employee Resignation Request</div>
+            </div>
+            <p style="color:#64748b;font-size:14px;margin-bottom:16px">
+                Submit a formal resignation request to your management. Upon submission, your request will be reviewed by admin for approval.
+            </p>
+
+            <div id="resignation-box">
+                <div id="resignation-status-msg" style="margin-bottom:16px;display:none"></div>
+                <div id="resignation-input-container">
+                    <div class="form-group" style="margin-bottom:12px">
+                        <label style="font-weight:600;color:#334155">requested notice period days <span style="font-weight:400;color:#64748b">(default by level: L1=90d, L2=60d, L3=30d)</span></label>
+                        <input type="number" id="resignation-notice-days" placeholder="e.g. 30" style="width:100%">
+                    </div>
+                    <div class="form-group" style="margin-bottom:16px">
+                        <label style="font-weight:600;color:#334155">reason for resignation <span style="font-weight:400;color:#64748b">(optional)</span></label>
+                        <textarea id="resignation-reason" placeholder="write your reason for resignation (optional)..." style="width:100%;height:80px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;font-size:14px;resize:vertical"></textarea>
+                    </div>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                        <button class="btn btn-danger" id="btn-submit-resignation" onclick="submitSettingsResignation()" style="width:auto">
+                            submit resignation request
+                        </button>
+                        <button class="btn btn-secondary" onclick="viewMyFnFStatement()" style="width:auto;background:#f1f5f9;color:#334155">
+                            view FnF settlement calculation
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -390,6 +420,20 @@
                 document.getElementById('p-phone').value = emp.phone || '';
                 document.getElementById('p-position').textContent = emp.position || 'employee';
                 document.getElementById('p-code').textContent = emp.employee_code || `EMP${String(emp.id).padStart(3,'0')}`;
+
+                if (emp.resignation_status === 'pending') {
+                    document.getElementById('resignation-status-msg').style.display = 'block';
+                    document.getElementById('resignation-status-msg').innerHTML = '<div style="background:#fef3c7;color:#92400e;padding:12px 16px;border-radius:8px;font-weight:600">🟡 Resignation Request Submitted — Awaiting Admin Approval</div>';
+                    document.getElementById('btn-submit-resignation').style.display = 'none';
+                } else if (emp.resignation_status === 'approved') {
+                    document.getElementById('resignation-status-msg').style.display = 'block';
+                    document.getElementById('resignation-status-msg').innerHTML = '<div style="background:#fee2e2;color:#991b1b;padding:12px 16px;border-radius:8px;font-weight:600">🔴 Resignation Approved — Account Deactivated</div>';
+                    document.getElementById('btn-submit-resignation').style.display = 'none';
+                } else if (emp.resignation_status === 'rejected') {
+                    document.getElementById('resignation-status-msg').style.display = 'block';
+                    document.getElementById('resignation-status-msg').innerHTML = '<div style="background:#f3f4f6;color:#374151;padding:12px 16px;border-radius:8px;font-weight:600">❌ Resignation Rejected by Admin</div>';
+                    document.getElementById('btn-submit-resignation').textContent = 're-submit resignation request';
+                }
 
                 if (emp.department_id) {
                     const deptRes = await fetch(`http://localhost:8000/departments/`, { headers: authHeaders() });
@@ -731,6 +775,73 @@
             }
         } catch(e) {
             alert('connection error while generating payslip');
+        }
+    }
+
+    async function submitSettingsResignation() {
+        const empId = localStorage.getItem('emp_id') || currentEmpId;
+        if (!empId || empId === 'null') { alert('no linked employee record found'); return; }
+
+        const reasonEl = document.getElementById('resignation-reason');
+        const noticeEl = document.getElementById('resignation-notice-days');
+
+        const reason = reasonEl ? reasonEl.value.trim() : '';
+        const noticeDays = noticeEl && noticeEl.value ? parseInt(noticeEl.value) : null;
+
+        if (!confirm('are you sure you want to submit your formal resignation request?')) return;
+
+        try {
+            const res = await fetch(`http://localhost:8000/employees/${empId}/resign`, {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({
+                    reason: reason,
+                    requested_notice_days: noticeDays
+                })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                alert(data.message || 'resignation request submitted successfully');
+                loadSettings();
+            } else {
+                alert(data.detail || 'resignation submission failed');
+            }
+        } catch(e) {
+            alert('connection error while submitting resignation');
+        }
+    }
+
+    async function viewMyFnFStatement() {
+        const empId = localStorage.getItem('emp_id') || currentEmpId;
+        if (!empId || empId === 'null') { alert('no linked employee record found'); return; }
+
+        try {
+            const res = await fetch(`http://localhost:8000/employees/${empId}/fnf-settlement`, { headers: authHeaders() });
+            const d = await res.json();
+            if (!res.ok) { alert(d.detail || 'failed to load FnF statement'); return; }
+
+            const msg = `FULL & FINAL (FnF) SETTLEMENT STATEMENT
+---------------------------------------------
+Employee: ${d.employee_name} (${d.employee_code})
+Level: ${d.level} | Daily Rate: ₹${d.daily_rate}
+Base Salary: ₹${d.base_salary.toLocaleString()}
+
+LEAVE ENCASHMENT / DEDUCTIONS:
+- Allowance: ${d.annual_leave_allowance} days | Used: ${d.used_leave_days} days
+- Unused Encashable Leaves: ${d.unused_leaves} days (+₹${d.leave_encashment.toLocaleString()})
+- Excess Leaves Taken: ${d.excess_leaves} days (-₹${d.excess_leave_deduction.toLocaleString()})
+
+NOTICE PERIOD SETTLEMENT:
+- Required: ${d.required_notice_days} days | Served: ${d.served_notice_days} days
+- Shortfall: ${d.shortfall_days} days | Action: ${d.notice_action.toUpperCase()}
+- Shortfall Penalty: -₹${d.shortfall_penalty.toLocaleString()}
+
+---------------------------------------------
+NET FnF PAYOUT: ₹${d.net_fnf_settlement.toLocaleString()}`;
+
+            alert(msg);
+        } catch(e) {
+            alert('connection error loading FnF statement');
         }
     }
 

@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 from datetime import datetime, date
@@ -12,6 +13,7 @@ class EmployeeCreate(BaseModel):
     hire_date: Optional[date] = None
     department_id: Optional[int] = None
     user_id: Optional[int] = None
+    level: Optional[str] = "L3"
 
     @field_validator('phone')
     @classmethod
@@ -34,6 +36,8 @@ class EmployeeUpdate(BaseModel):
     salary: Optional[int] = None
     hire_date: Optional[date] = None
     department_id: Optional[int] = None
+    is_active: Optional[bool] = None
+    level: Optional[str] = None
 
     @field_validator('phone')
     @classmethod
@@ -59,6 +63,13 @@ class EmployeeResponse(BaseModel):
     hire_date: Optional[date]
     department_id: Optional[int]
     user_id: Optional[int]
+    is_active: bool = True
+    resignation_status: Optional[str] = "none"
+    resignation_reason: Optional[str] = None
+    level: Optional[str] = "L3"
+    notice_period_days: Optional[int] = 30
+    requested_notice_days: Optional[int] = None
+    notice_action: Optional[str] = "none"
     created_at: datetime
 
     class Config:

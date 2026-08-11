@@ -108,16 +108,15 @@
 
 <div class="main-content">
 
-    <!-- Greeting -->
-    <div class="greeting-section">
+    <!-- Greeting (Admin only or default) -->
+    <div class="greeting-section" id="global-greeting">
         <h2 id="greeting-text">welcome back</h2>
-        <p id="greeting-sub">welcome back to employee management system</p>
+        <p id="greeting-sub">here's your overview for today</p>
         <p style="margin-top:6px;font-size:13px;opacity:0.7" id="today-date"></p>
     </div>
 
     <!-- ===== ADMIN DASHBOARD ===== -->
     <div id="admin-dashboard" style="display:none">
-
         <!-- Stats grid -->
         <div class="stats-grid" style="margin-bottom:24px">
             <div class="stat-card">
@@ -207,78 +206,57 @@
     <!-- ===== USER DASHBOARD ===== -->
     <div id="user-dashboard" style="display:none">
 
-        <!-- User quick actions -->
-        <div class="card" style="margin-bottom:20px">
-            <div class="section-title">quick actions</div>
-            <div class="quick-actions">
-                <a href="attendance.html" class="quick-action-btn"><svg class="icon"><use href="#i-check-circle"></use></svg> mark attendance</a>
-                <a href="leaves.html" class="quick-action-btn"><svg class="icon"><use href="#i-calendar"></use></svg> request leave</a>
+        <!-- Clean Executive Hero Banner -->
+        <div class="hero-punch-banner" style="background:linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);color:white;border-radius:16px;padding:24px 32px;margin-bottom:24px;box-shadow:0 10px 25px -5px rgba(37,99,235,0.3);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px">
+            <!-- Left User Welcome -->
+            <div>
+                <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#93c5fd;margin-bottom:4px">employee dashboard</div>
+                <h2 style="font-size:24px;font-weight:800;color:white;margin:0 0 4px" id="user-welcome-title">welcome back EMP004</h2>
+                <div style="font-size:13px;color:#dbeafe" id="live-clock-date">here's your overview for today — Monday, 10 August 2026</div>
+            </div>
+
+            <!-- Right Status & Punch Action Pair -->
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                <!-- Status Pill Box -->
+                <div id="punch-status-container" style="height:48px;padding:0 20px;border-radius:12px;background:rgba(255,255,255,0.15);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.25);display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;font-size:14px;font-weight:600">
+                    <span style="font-size:13px;color:#e0f2fe">checking status...</span>
+                </div>
+
+                <!-- Action Button -->
+                <button id="main-punch-btn" class="btn btn-success" style="height:48px;padding:0 20px;border-radius:12px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.15);box-sizing:border-radius" onclick="handleDashboardPunch()">
+                    <svg class="icon"><use href="#i-check-circle"></use></svg> <span id="punch-btn-label">mark attendance</span>
+                </button>
             </div>
         </div>
 
-        <!-- Monthly Attendance & Public Holidays Calendar -->
-        <div class="card" style="margin-bottom:20px">
-            <div class="card-header" style="flex-wrap:wrap;gap:12px">
-                <div class="card-title"><svg class="icon"><use href="#i-calendar"></use></svg> attendance & holiday calendar</div>
+        <!-- Full-Width Executive Attendance & Holiday Calendar -->
+        <div class="card" style="margin-bottom:0">
+            <div class="card-header" style="flex-wrap:wrap;gap:12px;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #e2e8f0">
+                <div class="card-title" style="font-size:18px;font-weight:700;color:#0f172a">
+                    <svg class="icon" style="color:#2563eb"><use href="#i-calendar"></use></svg> attendance & festival calendar
+                </div>
                 <div style="display:flex;align-items:center;gap:10px;margin-left:auto">
                     <button class="btn btn-secondary btn-sm" onclick="changeCalMonth(-1)">← prev</button>
-                    <span id="cal-month-title" style="font-weight:700;font-size:15px;color:#1e293b;min-width:130px;text-align:center"></span>
+                    <span id="cal-month-title" style="font-weight:700;font-size:16px;color:#1e293b;min-width:160px;text-align:center"></span>
                     <button class="btn btn-secondary btn-sm" onclick="changeCalMonth(1)">next →</button>
                 </div>
             </div>
 
-            <!-- Legend -->
-            <div style="display:flex;gap:12px;flex-wrap:wrap;padding:10px 0 16px;font-size:12px;font-weight:600;border-bottom:1px solid #e2e8f0;margin-bottom:16px">
-                <div style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#dcfce7;border:1px solid #16a34a;border-radius:3px"></span> 🟢 Present</div>
-                <div style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#f3e8ff;border:1px solid #9333ea;border-radius:3px"></span> 🟣 Half-Day</div>
-                <div style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#fee2e2;border:1px solid #dc2626;border-radius:3px"></span> 🔴 Leave / Absent</div>
-                <div style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#1e293b;border-radius:3px"></span> ⬛ Weekend (Sat/Sun)</div>
-                <div style="display:flex;align-items:center;gap:6px"><span style="width:14px;height:14px;background:#fef3c7;border:1px solid #d97706;border-radius:3px"></span> 🟠 Public Holiday</div>
+            <!-- Legend Pills -->
+            <div style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 16px;background:#f8fafc;border-radius:12px;font-size:12px;font-weight:600;margin-bottom:20px;border:1px solid #e2e8f0">
+                <span style="display:flex;align-items:center;gap:6px;background:#dcfce7;color:#15803d;padding:5px 12px;border-radius:20px;border:1px solid #86efac">🟢 Present</span>
+                <span style="display:flex;align-items:center;gap:6px;background:#f3e8ff;color:#7e22ce;padding:5px 12px;border-radius:20px;border:1px solid #d8b4fe">🟣 Half-Day</span>
+                <span style="display:flex;align-items:center;gap:6px;background:#fee2e2;color:#b91c1c;padding:5px 12px;border-radius:20px;border:1px solid #fca5a5">🔴 Absent / Leave</span>
+                <span style="display:flex;align-items:center;gap:6px;background:#1e293b;color:#f8fafc;padding:5px 12px;border-radius:20px">⬛ Weekend (Sat & Sun)</span>
+                <span style="display:flex;align-items:center;gap:6px;background:#fef3c7;color:#92400e;padding:5px 12px;border-radius:20px;border:1px solid #fde68a">🟠 Public Holiday / Festival</span>
             </div>
 
-            <!-- Grid Header & Days -->
-            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center;font-size:12px;font-weight:700;color:#64748b;margin-bottom:8px">
-                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            <!-- Grid Header (Sun - Sat) -->
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px;text-align:center;font-size:13px;font-weight:700;color:#64748b;margin-bottom:12px">
+                <div style="color:#ef4444">Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div style="color:#ef4444">Sat</div>
             </div>
-            <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px"></div>
-        </div>
-
-        <!-- Today's attendance -->
-        <div class="card" style="margin-bottom:20px">
-            <div class="card-header">
-                <div class="card-title"><svg class="icon"><use href="#i-clock"></use></svg> today's attendance</div>
-                <a href="attendance.html" class="btn btn-primary btn-sm">mark attendance</a>
-            </div>
-            <div id="my-attendance-today">
-                <div style="color:#64748b;font-size:14px;padding:8px 0">loading...</div>
-            </div>
-        </div>
-
-        <!-- My leaves -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title"><svg class="icon"><use href="#i-calendar"></use></svg> my leave requests</div>
-                <a href="leaves.html" class="btn btn-success btn-sm">+ request leave</a>
-            </div>
-            <div id="my-leaves-section">
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>type</th>
-                                <th>from</th>
-                                <th>to</th>
-                                <th>days</th>
-                                <th>reason</th>
-                                <th>status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="my-leaves-table">
-                            <tr><td colspan="6" style="text-align:center;padding:30px;color:#64748b">loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <!-- Calendar Cells Container -->
+            <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px"></div>
         </div>
 
     </div>
@@ -327,17 +305,14 @@
         document.getElementById('greeting-text').textContent = greetingText;
 
         if (isAdmin()) {
-            document.getElementById('admin-badge').style.display = 'inline';
-            document.getElementById('admin-link').style.display = 'inline';
-            if (document.getElementById('emp-link')) document.getElementById('emp-link').style.display = 'inline';
-            if (document.getElementById('dept-link')) document.getElementById('dept-link').style.display = 'inline';
+            document.getElementById('global-greeting').style.display = 'block';
             document.getElementById('greeting-sub').textContent = 'you have admin access — manage your team below';
             document.getElementById('admin-dashboard').style.display = 'block';
             loadAdminDashboard();
             loadPendingLeaves();
         } else {
+            document.getElementById('global-greeting').style.display = 'none';
             document.getElementById('user-dashboard').style.display = 'block';
-            document.getElementById('greeting-sub').textContent = 'here\'s your overview for today';
             loadLeaveBalance(validEmpId);
             loadMyAttendanceToday(validEmpId);
             loadMyLeaves(validEmpId);
@@ -423,16 +398,17 @@
         } catch(e) {}
     }
 
-    // USER — today's attendance
-    async function loadMyAttendanceToday(empId) {
-        const el = document.getElementById('my-attendance-today');
+    let currentTodayAttRecord = null;
 
-        if (!empId) {
-            el.innerHTML = `
-                <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:14px;font-size:14px;display:flex;gap:8px;align-items:flex-start">
-                    <svg class="icon" style="margin-top:2px;color:#a16207"><use href="#i-alert-triangle"></use></svg>
-                    <span>contact admin to link your account</span>
-                </div>`;
+    async function loadMyAttendanceToday(empId) {
+        const statusBox = document.getElementById('punch-status-container');
+        const btnLabel = document.getElementById('punch-btn-label');
+        const mainBtn = document.getElementById('main-punch-btn');
+        if (!statusBox) return;
+
+        if (!empId || empId === 'null') {
+            statusBox.innerHTML = `<div style="color:#fbbf24;font-size:13px;text-align:center">contact admin to link your account</div>`;
+            if (mainBtn) mainBtn.disabled = true;
             return;
         }
 
@@ -444,35 +420,120 @@
             const data = await res.json();
 
             if (!data || !data.length) {
-                el.innerHTML = `
-                    <div class="today-card absent">
-                        <svg class="icon icon-xl" style="color:#b45309"><use href="#i-alert-triangle"></use></svg>
-                        <div>
-                            <div style="font-weight:600;color:#92400e">attendance not marked today</div>
-                            <div style="font-size:13px;color:#a16207;margin-top:4px">please mark your attendance as soon as possible</div>
-                        </div>
-                        <a href="attendance.html" class="btn btn-warning btn-sm" style="margin-left:auto">mark attendance</a>
+                currentTodayAttRecord = null;
+                statusBox.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="width:10px;height:10px;background:#93c5fd;border-radius:50%"></span>
+                        <span style="font-size:13px;font-weight:600;color:#e0f2fe">Not Marked Today</span>
                     </div>`;
+                if (btnLabel) btnLabel.textContent = 'mark attendance';
+                if (mainBtn) { 
+                    mainBtn.disabled = false; 
+                    mainBtn.className = 'btn btn-success'; 
+                    mainBtn.style.cssText = 'height:48px;padding:0 20px;border-radius:12px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.15)'; 
+                }
             } else {
                 const att = data[0];
-                el.innerHTML = `
-                    <div class="today-card">
-                        <svg class="icon icon-xl" style="color:#16a34a"><use href="#i-check-circle"></use></svg>
-                        <div style="flex:1">
-                            <div style="font-weight:600;color:#166534">attendance marked</div>
-                            <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
-                                <div class="time-chip"><svg class="icon"><use href="#i-clock"></use></svg> check-in: <strong>${att.check_in || '—'}</strong></div>
-                                <div class="time-chip"><svg class="icon"><use href="#i-clock"></use></svg> check-out: <strong>${att.check_out || 'pending'}</strong></div>
-                                <span class="badge badge-green">${att.status.replace('_',' ')}</span>
-                            </div>
-                        </div>
-                        ${!att.check_out ? `<a href="attendance.html" class="btn btn-secondary btn-sm">update check-out</a>` : ''}
-                    </div>`;
+                currentTodayAttRecord = att;
+                const hrs = att.hours_worked ? `${att.hours_worked.toFixed(1)} hrs` : '0.0 hrs';
+                
+                if (att.check_in && !att.check_out) {
+                    statusBox.innerHTML = `
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span style="width:10px;height:10px;background:#4ade80;border-radius:50%"></span>
+                            <span style="font-size:13px;font-weight:700;color:white">Checked In: <strong>${att.check_in}</strong></span>
+                        </div>`;
+                    if (btnLabel) btnLabel.textContent = 'check out now';
+                    if (mainBtn) { 
+                        mainBtn.disabled = false; 
+                        mainBtn.className = 'btn btn-warning'; 
+                        mainBtn.style.cssText = 'height:48px;padding:0 20px;border-radius:12px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.15)'; 
+                    }
+                } else if (att.check_in && att.check_out) {
+                    statusBox.innerHTML = `
+                        <div style="display:flex;align-items:center;gap:8px">
+                            <span style="width:10px;height:10px;background:#60a5fa;border-radius:50%"></span>
+                            <span style="font-size:13px;font-weight:600;color:white">In: ${att.check_in} | Out: ${att.check_out} (${hrs})</span>
+                        </div>`;
+                    if (btnLabel) btnLabel.textContent = 'attendance completed';
+                    if (mainBtn) { 
+                        mainBtn.disabled = true; 
+                        mainBtn.className = 'btn btn-secondary'; 
+                        mainBtn.style.cssText = 'height:48px;padding:0 20px;border-radius:12px;font-size:14px;font-weight:600;display:inline-flex;align-items:center;justify-content:center'; 
+                    }
+                }
             }
         } catch(e) {
-            el.innerHTML = `<div style="color:#64748b;font-size:14px">could not load attendance data</div>`;
+            statusBox.innerHTML = `<div style="color:#f87171;font-size:13px;text-align:center">failed to load status</div>`;
         }
     }
+
+    async function handleDashboardPunch() {
+        const empCode = localStorage.getItem('employee_code');
+        const empId = localStorage.getItem('emp_id');
+        if (!empCode && !empId) { alert('No employee record found'); return; }
+
+        const now = new Date();
+        const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        const today = now.toISOString().split('T')[0];
+
+        const btn = document.getElementById('main-punch-btn');
+        if (btn) btn.disabled = true;
+
+        if (!currentTodayAttRecord) {
+            // PUNCH IN
+            try {
+                const res = await fetch('http://localhost:8000/attendance/', {
+                    method: 'POST',
+                    headers: authHeaders(),
+                    body: JSON.stringify({
+                        employee_code: empCode,
+                        date: today,
+                        check_in: timeStr,
+                        status: 'present'
+                    })
+                });
+                const d = await res.json();
+                if (res.ok) {
+                    alert(`Checked in successfully at ${timeStr}!`);
+                    loadMyAttendanceToday(empId);
+                    renderCalendar();
+                } else {
+                    alert(d.detail || 'Punch in failed');
+                }
+            } catch(e) { alert('Connection error'); }
+        } else if (currentTodayAttRecord && !currentTodayAttRecord.check_out) {
+            // PUNCH OUT
+            try {
+                const res = await fetch(`http://localhost:8000/attendance/${currentTodayAttRecord.id}`, {
+                    method: 'PUT',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ check_out: timeStr })
+                });
+                const d = await res.json();
+                if (res.ok) {
+                    alert(`Checked out successfully at ${timeStr}!`);
+                    loadMyAttendanceToday(empId);
+                    renderCalendar();
+                } else {
+                    alert(d.detail || 'Punch out failed');
+                }
+            } catch(e) { alert('Connection error'); }
+        }
+        if (btn) btn.disabled = false;
+    }
+
+    function updateLiveClock() {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('en-US', { hour12: true });
+        const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        const timeEl = document.getElementById('live-clock-time');
+        const dateEl = document.getElementById('live-clock-date');
+        if (timeEl) timeEl.textContent = timeStr;
+        if (dateEl) dateEl.textContent = dateStr;
+    }
+    setInterval(updateLiveClock, 1000);
+    updateLiveClock();
 
     // USER — my leaves
     async function loadMyLeaves(empId) {
@@ -568,7 +629,7 @@
 
         let cellsHtml = '';
         for (let i = 0; i < startDayIndex; i++) {
-            cellsHtml += `<div style="background:#f8fafc;min-height:54px;border-radius:6px"></div>`;
+            cellsHtml += `<div class="cal-grid-cell" style="background:#f8fafc;min-height:72px;border-radius:12px;border:1px dashed #e2e8f0"></div>`;
         }
 
         for (let day = 1; day <= daysInMonth; day++) {
@@ -587,29 +648,29 @@
                 bg = '#fef3c7';
                 border = '1px solid #f59e0b';
                 textColor = '#92400e';
-                badge = `<div style="font-size:9px;font-weight:700;color:#b45309;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${holidayName}</div>`;
+                badge = `<div class="cal-badge" style="font-size:11px;font-weight:700;color:#b45309;margin-top:4px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${holidayName}</div>`;
             } else if (isWeekend) {
                 bg = '#1e293b';
                 border = '1px solid #0f172a';
                 textColor = '#f8fafc';
-                badge = `<div style="font-size:9px;opacity:0.75;margin-top:2px">Weekend</div>`;
+                badge = `<div class="cal-badge" style="font-size:11px;opacity:0.8;margin-top:4px;font-weight:500">Off-day</div>`;
             } else if (status) {
                 const st = status.toLowerCase();
                 if (st.includes('present')) {
                     bg = '#dcfce7'; border = '1px solid #16a34a'; textColor = '#15803d';
-                    badge = `<div style="font-size:9px;font-weight:700;color:#15803d;margin-top:2px">🟢 Present</div>`;
+                    badge = `<div class="cal-badge" style="font-size:11px;font-weight:700;color:#15803d;margin-top:4px">🟢 Present</div>`;
                 } else if (st.includes('half')) {
                     bg = '#f3e8ff'; border = '1px solid #9333ea'; textColor = '#7e22ce';
-                    badge = `<div style="font-size:9px;font-weight:700;color:#7e22ce;margin-top:2px">🟣 Half-Day</div>`;
+                    badge = `<div class="cal-badge" style="font-size:11px;font-weight:700;color:#7e22ce;margin-top:4px">🟣 Half-Day</div>`;
                 } else if (st.includes('absent') || st.includes('leave')) {
                     bg = '#fee2e2'; border = '1px solid #dc2626'; textColor = '#b91c1c';
-                    badge = `<div style="font-size:9px;font-weight:700;color:#b91c1c;margin-top:2px">🔴 Absent</div>`;
+                    badge = `<div class="cal-badge" style="font-size:11px;font-weight:700;color:#b91c1c;margin-top:4px">🔴 Absent</div>`;
                 }
             }
 
             cellsHtml += `
-                <div style="background:${bg};border:${border};color:${textColor};padding:8px 6px;border-radius:6px;min-height:54px;display:flex;flex-direction:column;justify-content:space-between">
-                    <div style="font-weight:700;font-size:13px">${day}</div>
+                <div class="cal-grid-cell" style="background:${bg};border:${border};color:${textColor};padding:10px 8px;border-radius:12px;min-height:72px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 2px 4px rgba(0,0,0,0.03);transition:all 0.2s ease">
+                    <div class="cal-cell-day" style="font-weight:800;font-size:15px">${day}</div>
                     ${badge}
                 </div>`;
         }

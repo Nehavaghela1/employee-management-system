@@ -1,0 +1,8 @@
+{
+    "python.defaultInterpreterPath": "/Users/apple/employee_management/venv/bin/python",
+    "python.pythonPath": "/Users/apple/employee_management/venv/bin/python",
+    "pyrefly.interpreterPath": "/Users/apple/employee_management/venv/bin/python",
+    "python.analysis.extraPaths": [
+        "/Users/apple/employee_management"
+    ]
+}

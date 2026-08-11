@@ -25,14 +25,17 @@
     </div>
 
     <div class="form-group">
-        <label>Email address</label>
-        <input type="email" id="email" placeholder="you@example.com">
-        <div class="field-error" id="email-error">please enter a valid email address</div>
+        <label>Email address or Employee Code</label>
+        <input type="text" id="email" autocomplete="username" placeholder="you@example.com or EMP001" name="username">
+        <div class="field-error" id="email-error">please enter a valid email address or employee code</div>
     </div>
 
     <div class="form-group">
         <label>Password</label>
-        <input type="password" id="password" placeholder="minimum 8 characters">
+        <div style="position:relative">
+            <input type="password" id="password" autocomplete="current-password" placeholder="minimum 8 characters" name="password" style="padding-right:40px">
+            <button type="button" onclick="togglePasswordVisibility()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#64748b;padding:4px" title="Show/Hide password">👁️</button>
+        </div>
         <div class="field-error" id="password-error">password must be at least 8 characters</div>
     </div>
 
@@ -52,8 +55,26 @@
 <script src="js/icons.js"></script>
 <script src="js/auth.js"></script>
 <script>
+    // Password visibility toggle
+    function togglePasswordVisibility() {
+        const passInput = document.getElementById('password');
+        if (passInput.type === 'password') {
+            passInput.type = 'text';
+        } else {
+            passInput.type = 'password';
+        }
+    }
+
     // If already logged in — go to dashboard
     if (isLoggedIn()) window.location.href = 'dashboard.html';
+
+    // Auto-fill previous successfully logged-in credentials
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedUser = localStorage.getItem('remember_username');
+        if (savedUser) {
+            document.getElementById('email').value = savedUser;
+        }
+    });
 
     // Client-side validation
     function validate() {
@@ -67,16 +88,11 @@
         document.getElementById('email-error').classList.remove('show');
         document.getElementById('password-error').classList.remove('show');
 
-        // Email check
+        // Email / Employee Code / Username check
         if (!email) {
-            errors.push('email is required');
+            errors.push('email or employee code is required');
             document.getElementById('email').classList.add('error');
-            document.getElementById('email-error').textContent = 'email is required';
-            document.getElementById('email-error').classList.add('show');
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            errors.push('enter a valid email address');
-            document.getElementById('email').classList.add('error');
-            document.getElementById('email-error').textContent = 'enter a valid email address';
+            document.getElementById('email-error').textContent = 'email or employee code is required';
             document.getElementById('email-error').classList.add('show');
         }
 
@@ -99,11 +115,16 @@
     function showErrors(errors) {
         const box = document.getElementById('error-box');
         const list = document.getElementById('error-list');
-        if (errors.length === 0) {
+        if (!errors || errors.length === 0) {
             box.classList.remove('show');
             return;
         }
-        list.innerHTML = errors.map(e => `<li>${e}</li>`).join('');
+        const formatted = errors.map(e => {
+            if (typeof e === 'string') return e;
+            if (e && e.msg) return e.msg;
+            return JSON.stringify(e);
+        });
+        list.innerHTML = formatted.map(e => `<li>${e}</li>`).join('');
         box.classList.add('show');
     }
 
@@ -133,6 +154,7 @@
             const payload = JSON.parse(atob(data.access_token.split('.')[1]));
             localStorage.setItem('token', data.access_token);
             localStorage.setItem('email', payload.sub);
+            localStorage.setItem('remember_username', email);
 
             const meRes = await fetch('http://localhost:8000/auth/me', {
                 headers: {'Authorization': `Bearer ${data.access_token}`}
@@ -144,7 +166,10 @@
 
             window.location.href = 'dashboard.html';
         } else {
-                showErrors([data.detail || 'invalid email or password']);
+                const errDetail = Array.isArray(data.detail)
+                    ? data.detail.map(d => d.msg || 'invalid input')
+                    : [data.detail || 'invalid email, employee code, or password'];
+                showErrors(errDetail);
             }
         } catch(e) {
             showErrors(['connection failed. make sure server is running.']);

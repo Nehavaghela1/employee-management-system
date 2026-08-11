@@ -4,7 +4,6 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserRegister, UserLogin, UserResponse, TokenResponse
 from app.utils.auth import hash_password, verify_password, create_access_token, get_admin_user, get_current_user
-from datetime import timedelta
 import logging
 from app.models.employee import Employee
 from datetime import datetime, timedelta, timezone
@@ -67,42 +66,54 @@ def find_user_by_identifier(db: Session, identifier: str) -> User:
         return None
     identifier = identifier.strip()
 
-    # 1. Search in User table (email or username)
-    user = db.query(User).filter(
-        (User.email.ilike(identifier)) | (User.username.ilike(identifier))
-    ).first()
-    if user:
-        return user
+    # Build variants for employee codes (e.g. "1" -> "EMP001", "emp1" -> "EMP001")
+    identifiers_to_try = [identifier]
+    if identifier.isdigit():
+        identifiers_to_try.append(f"EMP{identifier.zfill(3)}")
+    elif identifier.upper().startswith("EMP") and identifier[3:].isdigit():
+        num_part = identifier[3:]
+        identifiers_to_try.append(f"EMP{num_part.zfill(3)}")
 
-    # 2. Search in Employee table (email or employee_code)
-    emp = db.query(Employee).filter(
-        (Employee.email.ilike(identifier)) | (Employee.employee_code.ilike(identifier))
-    ).first()
-    if emp:
-        if emp.user_id:
+    for ident in identifiers_to_try:
+        # 1. Search in User table (email or username)
+        user = db.query(User).filter(
+            (User.email.ilike(ident)) | (User.username.ilike(ident))
+        ).first()
+        if user:
+            return user
+
+        # 2. Search in Employee table (email or employee_code)
+        emp = db.query(Employee).filter(
+            (Employee.email.ilike(ident)) | (Employee.employee_code.ilike(ident))
+        ).first()
+        if emp:
+            if emp.user_id:
+                user = db.query(User).filter(User.id == emp.user_id).first()
+                if user:
+                    return user
+            user = db.query(User).filter(User.email.ilike(emp.email)).first()
+            if user:
+                emp.user_id = user.id
+                db.commit()
+                return user
+
+    # 3. Sync missing accounts and retry
+    sync_employees_and_users(db)
+
+    for ident in identifiers_to_try:
+        user = db.query(User).filter(
+            (User.email.ilike(ident)) | (User.username.ilike(ident))
+        ).first()
+        if user:
+            return user
+
+        emp = db.query(Employee).filter(
+            (Employee.email.ilike(ident)) | (Employee.employee_code.ilike(ident))
+        ).first()
+        if emp and emp.user_id:
             user = db.query(User).filter(User.id == emp.user_id).first()
             if user:
                 return user
-        user = db.query(User).filter(User.email.ilike(emp.email)).first()
-        if user:
-            emp.user_id = user.id
-            db.commit()
-            return user
-
-    # 3. Sync and attempt final lookup
-    sync_employees_and_users(db)
-
-    user = db.query(User).filter(
-        (User.email.ilike(identifier)) | (User.username.ilike(identifier))
-    ).first()
-    if user:
-        return user
-
-    emp = db.query(Employee).filter(
-        (Employee.email.ilike(identifier)) | (Employee.employee_code.ilike(identifier))
-    ).first()
-    if emp and emp.user_id:
-        return db.query(User).filter(User.id == emp.user_id).first()
 
     return None
 
@@ -174,19 +185,35 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
-    
+    from app.utils.audit import log_activity
+
     user = find_user_by_identifier(db, user_data.email)
-    
+
     if not user or not verify_password(user_data.password, user.hashed_password):
         logger.warning(f"Failed login attempt: {user_data.email}")
+        log_activity(db, "LOGIN_FAILED", user_email=user_data.email, details="Invalid credentials")
         raise HTTPException(status_code=401, detail="Invalid email, username, employee code or password")
-    
+
+    if user.is_active is False:
+        logger.warning(f"Blocked login attempt for deactivated user: {user.email}")
+        log_activity(db, "LOGIN_BLOCKED", user_email=user.email, details="Account deactivated by admin")
+        raise HTTPException(status_code=403, detail="Your account has been deactivated by admin. Please contact support.")
+
+    emp = db.query(Employee).filter(
+        (Employee.user_id == user.id) | (Employee.email == user.email)
+    ).first()
+    if emp and emp.is_active is False:
+        logger.warning(f"Blocked login attempt for deactivated employee: {user.email}")
+        log_activity(db, "LOGIN_BLOCKED", user_email=user.email, employee_code=emp.employee_code, details="Employee account deactivated")
+        raise HTTPException(status_code=403, detail="Your employee account has been deactivated by admin. Please contact support.")
+
     access_token = create_access_token(
         data={"sub": user.email},
         expires_delta=timedelta(minutes=30)
     )
-    
+
     logger.info(f"User logged in successfully: {user.email}")
+    log_activity(db, "LOGIN_SUCCESS", user_email=user.email, employee_code=emp.employee_code if emp else None)
     return {
         "access_token": access_token,
         "token_type": "bearer"
