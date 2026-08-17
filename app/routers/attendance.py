@@ -8,9 +8,7 @@ from app.models.employee import Employee
 from app.schemas.attendance import AttendanceCreate, AttendanceUpdate, AttendanceResponse
 from app.utils.auth import get_current_user, get_admin_user
 from app.models.user import User
-
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
-
 from fastapi.responses import Response
 
 @router.get("/export")
@@ -160,7 +158,7 @@ def get_attendance_record(att_id: int, db: Session = Depends(get_db)):
     if not att:
         raise HTTPException(status_code=404, detail="attendance record not found")
     return att
-
+ 
 @router.put("/{att_id}", response_model=AttendanceResponse)
 def update_attendance(
     att_id: int,

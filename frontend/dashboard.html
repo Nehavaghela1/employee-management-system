@@ -175,6 +175,46 @@
             </div>
         </div>
 
+        <!-- Visual Analytics Cards -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+            <!-- Department Headcount Distribution -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><svg class="icon"><use href="#i-building"></use></svg> Department Headcount Distribution</div>
+                </div>
+                <div id="dept-analytics-list" style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+                    <div style="color:#64748b;font-size:13px">Loading distribution...</div>
+                </div>
+            </div>
+
+            <!-- Attendance & Leave Ratios -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title"><svg class="icon"><use href="#i-check-circle"></use></svg> Attendance & Leave Overview</div>
+                </div>
+                <div id="attendance-analytics-list" style="display:flex;flex-direction:column;gap:16px;margin-top:12px">
+                    <div>
+                        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+                            <span>Present vs Total Staff Ratio</span>
+                            <strong id="ratio-present-pct">0%</strong>
+                        </div>
+                        <div style="background:#e2e8f0;height:10px;border-radius:5px;overflow:hidden">
+                            <div id="ratio-present-bar" style="background:#16a34a;height:100%;width:0%;transition:width 0.5s"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+                            <span>Approved Leaves Ratio</span>
+                            <strong id="ratio-leave-pct">0%</strong>
+                        </div>
+                        <div style="background:#e2e8f0;height:10px;border-radius:5px;overflow:hidden">
+                            <div id="ratio-leave-bar" style="background:#2563eb;height:100%;width:0%;transition:width 0.5s"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Pending leave approvals -->
         <div class="card">
             <div class="card-header">
@@ -333,6 +373,65 @@
             document.getElementById('present-today').textContent = data.present_today;
             document.getElementById('approved-leaves').textContent = data.approved_leaves;
             document.getElementById('total-attendance').textContent = data.total_attendance_records;
+
+            // Compute Ratios
+            const totalEmp = data.total_employees || 1;
+            const presentToday = data.present_today || 0;
+            const approvedLeaves = data.approved_leaves || 0;
+
+            const presentPct = Math.min(100, Math.round((presentToday / totalEmp) * 100));
+            const leavePct = Math.min(100, Math.round((approvedLeaves / totalEmp) * 100));
+
+            const presentBar = document.getElementById('ratio-present-bar');
+            const presentTxt = document.getElementById('ratio-present-pct');
+            if (presentBar && presentTxt) {
+                presentBar.style.width = `${presentPct}%`;
+                presentTxt.textContent = `${presentPct}% (${presentToday}/${totalEmp})`;
+            }
+
+            const leaveBar = document.getElementById('ratio-leave-bar');
+            const leaveTxt = document.getElementById('ratio-leave-pct');
+            if (leaveBar && leaveTxt) {
+                leaveBar.style.width = `${leavePct}%`;
+                leaveTxt.textContent = `${leavePct}% (${approvedLeaves}/${totalEmp})`;
+            }
+
+            // Load Department Headcount Breakdown
+            const deptRes = await fetch('http://localhost:8000/departments/', { headers: authHeaders() });
+            const empRes = await fetch('http://localhost:8000/employees/?limit=1000', { headers: authHeaders() });
+            if (deptRes.ok && empRes.ok) {
+                const depts = await deptRes.json();
+                const emps = await empRes.json();
+
+                const deptCounts = {};
+                depts.forEach(d => { deptCounts[d.name] = 0; });
+                deptCounts['unassigned'] = 0;
+
+                emps.forEach(e => {
+                    const deptObj = depts.find(d => d.id === e.department_id);
+                    const dName = deptObj ? deptObj.name : 'unassigned';
+                    deptCounts[dName] = (deptCounts[dName] || 0) + 1;
+                });
+
+                const listEl = document.getElementById('dept-analytics-list');
+                if (listEl) {
+                    listEl.innerHTML = Object.keys(deptCounts).map(dName => {
+                        const count = deptCounts[dName];
+                        const pct = Math.round((count / totalEmp) * 100);
+                        return `
+                        <div>
+                            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+                                <span>${dName}</span>
+                                <strong>${count} employees (${pct}%)</strong>
+                            </div>
+                            <div style="background:#e2e8f0;height:8px;border-radius:4px;overflow:hidden">
+                                <div style="background:#2563eb;height:100%;width:${pct}%"></div>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
+            }
+
         } catch(e) { console.error('dashboard load failed'); }
     }
 

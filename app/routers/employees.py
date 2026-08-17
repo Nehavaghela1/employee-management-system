@@ -15,9 +15,6 @@ from datetime import timedelta
 import logging
 logger = logging.getLogger(__name__)
 
-def resequence_employee_codes(db: Session):
-    # Employee codes are now permanent and never re-sequenced upon employee exit/deactivation
-    pass
 
 router = APIRouter(prefix="/employees", tags=["Employees"])
 @router.get("/", response_model=List[EmployeeResponse])
@@ -132,9 +129,6 @@ def create_employee(
     )
     db.add(new_emp)
     db.commit()
-    db.refresh(new_emp)
-
-    resequence_employee_codes(db)
     db.refresh(new_emp)
     return new_emp
 
@@ -488,7 +482,7 @@ def get_fnf_settlement(
         "employee_id": emp.id,
         "employee_code": emp.employee_code,
         "employee_name": f"{emp.first_name} {emp.last_name or ''}".strip(),
-        "level": getattr(emp, 'level', 'L3') or 'L3',
+        "level": "Senior / Leadership Role (L1)" if (getattr(emp, 'level', 'L3') == 'L1') else "Executive / Mid-Level Role (L2)" if (getattr(emp, 'level', 'L3') == 'L2') else "Junior Role (L3)",
         "base_salary": base_salary,
         "daily_rate": daily_rate,
         "used_leave_days": used_leave_days,

@@ -296,9 +296,12 @@
                         <div>Total Deductions: <strong style="color:#dc2626" id="ps-total-ded">₹0</strong></div>
                     </div>
                 </div>
-                <div style="margin-top:16px;padding-top:12px;border-top:2px dashed #cbd5e1;display:flex;justify-content:space-between;align-items:center">
-                    <div style="font-size:16px;font-weight:700;color:#0f172a">Net Payable Salary:</div>
-                    <div style="font-size:24px;font-weight:800;color:#16a34a" id="ps-net">₹0</div>
+                <div style="margin-top:16px;padding-top:12px;border-top:2px dashed #cbd5e1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+                    <div>
+                        <div style="font-size:14px;color:#64748b">Net Payable Salary:</div>
+                        <div style="font-size:24px;font-weight:800;color:#16a34a" id="ps-net">₹0</div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="printPayslipModal()">🖨️ Print / Save PDF Payslip</button>
                 </div>
             </div>
         <!-- Section 5: Resignation Request -->
@@ -313,10 +316,16 @@
             <div id="resignation-box">
                 <div id="resignation-status-msg" style="margin-bottom:16px;display:none"></div>
                 <div id="resignation-input-container">
+
                     <div class="form-group" style="margin-bottom:12px">
-                        <label style="font-weight:600;color:#334155">requested notice period days <span style="font-weight:400;color:#64748b">(default by level: L1=90d, L2=60d, L3=30d)</span></label>
-                        <input type="number" id="resignation-notice-days" placeholder="e.g. 30" style="width:100%">
+                        <label style="font-weight:600;color:#334155">proposed last working date</label>
+                        <input type="date" id="resignation-last-date" onchange="calculateNoticeServed()" style="width:100%">
                     </div>
+
+                    <div id="resignation-calc-preview" style="background:#f8fafc;border:1px solid #e2e8f0;padding:12px 16px;border-radius:8px;font-size:13px;color:#475569;margin-bottom:16px">
+                        Notice Served: <strong id="notice-served-days">30</strong> days | Shortfall: <strong id="notice-shortfall-days" style="color:#16a34a">0</strong> days
+                    </div>
+
                     <div class="form-group" style="margin-bottom:16px">
                         <label style="font-weight:600;color:#334155">reason for resignation <span style="font-weight:400;color:#64748b">(optional)</span></label>
                         <textarea id="resignation-reason" placeholder="write your reason for resignation (optional)..." style="width:100%;height:80px;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;font-size:14px;resize:vertical"></textarea>
@@ -333,6 +342,23 @@
             </div>
         </div>
 
+    </div>
+</div>
+
+<!-- PRINT / PDF DOCUMENT MODAL -->
+<div class="modal-overlay" id="print-modal">
+    <div class="modal" style="max-width:650px;width:95%">
+        <div class="modal-header">
+            <div class="modal-title" id="print-modal-title">Formal Document</div>
+            <button class="modal-close" onclick="closePrintModal()"><svg class="icon"><use href="#i-x"></use></svg></button>
+        </div>
+        <div class="modal-body" id="print-modal-body" style="font-family:monospace;background:#f8fafc;padding:20px;border-radius:8px;border:1px solid #e2e8f0;white-space:pre-wrap;line-height:1.6;font-size:14px;color:#1e293b">
+            Loading document...
+        </div>
+        <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center">
+            <button class="btn btn-secondary" onclick="closePrintModal()">Close</button>
+            <button class="btn btn-primary" onclick="window.print()">🖨️ Print / Save as PDF</button>
+        </div>
     </div>
 </div>
 
@@ -420,6 +446,29 @@
                 document.getElementById('p-phone').value = emp.phone || '';
                 document.getElementById('p-position').textContent = emp.position || 'employee';
                 document.getElementById('p-code').textContent = emp.employee_code || `EMP${String(emp.id).padStart(3,'0')}`;
+
+                let requiredNoticeDays = 30;
+                const level = emp.level || 'L3';
+                let levelLabel = 'L3 — Junior Role (30 Days Notice)';
+                if (level === 'L1') { requiredNoticeDays = 90; levelLabel = 'L1 — Senior / Leadership Role (90 Days Notice)'; }
+                else if (level === 'L2') { requiredNoticeDays = 60; levelLabel = 'L2 — Executive / Mid-Level Role (60 Days Notice)'; }
+                else { requiredNoticeDays = 30; levelLabel = 'L3 — Junior Role (30 Days Notice)'; }
+
+                window.currentRequiredNoticeDays = requiredNoticeDays;
+
+                const banner = document.getElementById('resignation-notice-banner');
+                if (banner) {
+                    banner.innerHTML = `<strong>Seniority Role:</strong> ${levelLabel} <br> <strong>Standard Required Notice Period:</strong> ${requiredNoticeDays} Days`;
+                }
+
+                const today = new Date();
+                const defaultLastDate = new Date();
+                defaultLastDate.setDate(today.getDate() + requiredNoticeDays);
+                const lastDateInput = document.getElementById('resignation-last-date');
+                if (lastDateInput && !lastDateInput.value) {
+                    lastDateInput.value = defaultLastDate.toISOString().split('T')[0];
+                    calculateNoticeServed();
+                }
 
                 if (emp.resignation_status === 'pending') {
                     document.getElementById('resignation-status-msg').style.display = 'block';
@@ -778,15 +827,82 @@
         }
     }
 
+    function printPayslipModal() {
+        const empName = document.getElementById('ps-emp-name').textContent;
+        const empCode = document.getElementById('ps-emp-code').textContent;
+        const period = document.getElementById('ps-period').textContent;
+        const base = document.getElementById('ps-base').textContent;
+        const daysM = document.getElementById('ps-days-m').textContent;
+        const daily = document.getElementById('ps-daily').textContent;
+        const present = document.getElementById('ps-present').textContent;
+        const halfCut = document.getElementById('ps-half-cut').textContent;
+        const absentCut = document.getElementById('ps-absent-cut').textContent;
+        const unpaidCut = document.getElementById('ps-unpaid-cut').textContent;
+        const totalDed = document.getElementById('ps-total-ded').textContent;
+        const net = document.getElementById('ps-net').textContent;
+
+        const msg = `EMPLOYEE MANAGEMENT SYSTEM
+OFFICIAL MONTHLY PAYSLIP
+=============================================
+Employee: ${empName}
+Details: ${empCode}
+Pay Period: ${period}
+
+---------------------------------------------
+1. EARNINGS & BASE RATE:
+- Base Monthly Salary: ${base}
+- Days in Month: ${daysM}
+- Daily Salary Rate: ${daily}
+- Total Present Days: ${present}
+
+---------------------------------------------
+2. DEDUCTIONS BREAKDOWN:
+- Half-Day Attendance Deductions: ${halfCut}
+- Unexcused Absence Deductions: ${absentCut}
+- Unpaid Excess Leave Deductions: ${unpaidCut}
+- Total Deductions: ${totalDed}
+
+=============================================
+NET PAYABLE SALARY: ${net}
+=============================================`;
+
+        document.getElementById('print-modal-title').textContent = `Payslip — ${period}`;
+        document.getElementById('print-modal-body').textContent = msg;
+        document.getElementById('print-modal').classList.add('show');
+    }
+
+    function calculateNoticeServed() {
+        const lastDateInput = document.getElementById('resignation-last-date');
+        if (!lastDateInput || !lastDateInput.value) return;
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        const lastDate = new Date(lastDateInput.value);
+        lastDate.setHours(0,0,0,0);
+
+        const reqDays = window.currentRequiredNoticeDays || 30;
+        const diffTime = lastDate - today;
+        const servedDays = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+        const shortfallDays = Math.max(0, reqDays - servedDays);
+
+        document.getElementById('notice-served-days').textContent = servedDays;
+        const shortfallEl = document.getElementById('notice-shortfall-days');
+        shortfallEl.textContent = shortfallDays;
+        if (shortfallDays > 0) {
+            shortfallEl.style.color = '#dc2626';
+        } else {
+            shortfallEl.style.color = '#16a34a';
+        }
+    }
+
     async function submitSettingsResignation() {
         const empId = localStorage.getItem('emp_id') || currentEmpId;
         if (!empId || empId === 'null') { alert('no linked employee record found'); return; }
 
         const reasonEl = document.getElementById('resignation-reason');
-        const noticeEl = document.getElementById('resignation-notice-days');
-
         const reason = reasonEl ? reasonEl.value.trim() : '';
-        const noticeDays = noticeEl && noticeEl.value ? parseInt(noticeEl.value) : null;
+
+        const servedDaysText = document.getElementById('notice-served-days') ? document.getElementById('notice-served-days').textContent : '30';
+        const servedDays = parseInt(servedDaysText) || 30;
 
         if (!confirm('are you sure you want to submit your formal resignation request?')) return;
 
@@ -796,7 +912,7 @@
                 headers: authHeaders(),
                 body: JSON.stringify({
                     reason: reason,
-                    requested_notice_days: noticeDays
+                    requested_notice_days: servedDays
                 })
             });
             const data = await res.json();
@@ -811,6 +927,10 @@
         }
     }
 
+    function closePrintModal() {
+        document.getElementById('print-modal').classList.remove('show');
+    }
+
     async function viewMyFnFStatement() {
         const empId = localStorage.getItem('emp_id') || currentEmpId;
         if (!empId || empId === 'null') { alert('no linked employee record found'); return; }
@@ -820,26 +940,37 @@
             const d = await res.json();
             if (!res.ok) { alert(d.detail || 'failed to load FnF statement'); return; }
 
-            const msg = `FULL & FINAL (FnF) SETTLEMENT STATEMENT
----------------------------------------------
-Employee: ${d.employee_name} (${d.employee_code})
-Level: ${d.level} | Daily Rate: ₹${d.daily_rate}
+            const msg = `EMPLOYEE MANAGEMENT SYSTEM
+FULL & FINAL (FnF) SETTLEMENT STATEMENT
+=============================================
+Employee Name: ${d.employee_name}
+Employee Code: ${d.employee_code}
+Seniority Level: ${d.level}
+Daily Rate: ₹${d.daily_rate}
 Base Salary: ₹${d.base_salary.toLocaleString()}
 
-LEAVE ENCASHMENT / DEDUCTIONS:
-- Allowance: ${d.annual_leave_allowance} days | Used: ${d.used_leave_days} days
-- Unused Encashable Leaves: ${d.unused_leaves} days (+₹${d.leave_encashment.toLocaleString()})
-- Excess Leaves Taken: ${d.excess_leaves} days (-₹${d.excess_leave_deduction.toLocaleString()})
-
-NOTICE PERIOD SETTLEMENT:
-- Required: ${d.required_notice_days} days | Served: ${d.served_notice_days} days
-- Shortfall: ${d.shortfall_days} days | Action: ${d.notice_action.toUpperCase()}
-- Shortfall Penalty: -₹${d.shortfall_penalty.toLocaleString()}
+---------------------------------------------
+1. LEAVE ENCASHMENT & DEDUCTIONS:
+- Annual Allowance: ${d.annual_leave_allowance} Days
+- Approved Leaves Taken: ${d.used_leave_days} Days
+- Unused Encashable Leaves: ${d.unused_leaves} Days (+₹${d.leave_encashment.toLocaleString()})
+- Excess Unpaid Leaves: ${d.excess_leaves} Days (-₹${d.excess_leave_deduction.toLocaleString()})
 
 ---------------------------------------------
-NET FnF PAYOUT: ₹${d.net_fnf_settlement.toLocaleString()}`;
+2. NOTICE PERIOD SETTLEMENT:
+- Required Notice Period: ${d.required_notice_days} Days
+- Served Notice Period: ${d.served_notice_days} Days
+- Shortfall Notice Days: ${d.shortfall_days} Days
+- Notice Action: ${d.notice_action.toUpperCase()}
+- Shortfall Penalty Deduction: -₹${d.shortfall_penalty.toLocaleString()}
 
-            alert(msg);
+=============================================
+FINAL NET FnF PAYOUT: ₹${d.net_fnf_settlement.toLocaleString()}
+=============================================`;
+
+            document.getElementById('print-modal-title').textContent = `FnF Settlement — ${d.employee_code}`;
+            document.getElementById('print-modal-body').textContent = msg;
+            document.getElementById('print-modal').classList.add('show');
         } catch(e) {
             alert('connection error loading FnF statement');
         }

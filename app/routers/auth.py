@@ -8,6 +8,8 @@ import logging
 from app.models.employee import Employee
 from datetime import datetime, timedelta, timezone
 import random
+from app.utils.audit import log_activity
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -156,6 +158,8 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         existing_emp.user_id = new_user.id
         if not existing_emp.employee_code:
             existing_emp.employee_code = employee_code
+        if user_data.department_id:
+            existing_emp.department_id = user_data.department_id
         db.commit()
         db.refresh(existing_emp)
         employee_id = existing_emp.id
@@ -168,7 +172,8 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
             email=user_data.email,
             position="employee",
             employee_code=employee_code,
-            user_id=new_user.id
+            user_id=new_user.id,
+            department_id=user_data.department_id
         )
         db.add(new_emp)
         db.commit()
@@ -185,8 +190,6 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(user_data: UserLogin, db: Session = Depends(get_db)):
-    from app.utils.audit import log_activity
-
     user = find_user_by_identifier(db, user_data.email)
 
     if not user or not verify_password(user_data.password, user.hashed_password):

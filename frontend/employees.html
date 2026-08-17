@@ -170,63 +170,73 @@
                 <div class="alert-content"><div id="modal-error-msg"></div></div>
             </div>
 
-            <input type="hidden" id="emp-id">
+            <input type="hidden" id="f-userid">
 
             <div class="form-row">
                 <div class="form-group">
                     <label>first name <span style="color:#ef4444">*</span></label>
-                    <input type="text" id="emp-firstname" placeholder="e.g. John">
-                    <div class="field-error" id="emp-firstname-error"></div>
+                    <input type="text" id="f-firstname" placeholder="e.g. John">
+                    <div class="field-error" id="f-firstname-error"></div>
                 </div>
                 <div class="form-group">
                     <label>last name <span style="color:#ef4444">*</span></label>
-                    <input type="text" id="emp-lastname" placeholder="e.g. Doe">
-                    <div class="field-error" id="emp-lastname-error"></div>
+                    <input type="text" id="f-lastname" placeholder="e.g. Doe">
+                    <div class="field-error" id="f-lastname-error"></div>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
                     <label>email <span style="color:#ef4444">*</span></label>
-                    <input type="email" id="emp-email" placeholder="john@example.com">
-                    <div class="field-error" id="emp-email-error"></div>
+                    <input type="email" id="f-email" placeholder="john@example.com">
+                    <div class="field-error" id="f-email-error"></div>
                 </div>
                 <div class="form-group">
                     <label>phone</label>
-                    <input type="text" id="emp-phone" placeholder="10-15 digits">
-                    <div class="field-error" id="emp-phone-error"></div>
+                    <input type="text" id="f-phone" placeholder="10-15 digits">
+                    <div class="field-error" id="f-phone-error"></div>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
                     <label>position <span style="color:#ef4444">*</span></label>
-                    <input type="text" id="emp-position" placeholder="e.g. Developer">
-                    <div class="field-error" id="emp-position-error"></div>
+                    <input type="text" id="f-position" placeholder="e.g. Developer">
+                    <div class="field-error" id="f-position-error"></div>
                 </div>
                 <div class="form-group">
                     <label>salary (₹)</label>
-                    <input type="number" id="emp-salary" placeholder="monthly salary">
+                    <input type="number" id="f-salary" placeholder="monthly salary">
+                    <div class="field-error" id="f-salary-error"></div>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
                     <label>department</label>
-                    <select id="emp-dept">
+                    <select id="f-department">
                         <option value="">unassigned</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>hire date</label>
-                    <input type="date" id="emp-hiredate">
+                    <input type="date" id="f-hiredate">
                 </div>
+            </div>
+
+            <div class="form-group" style="margin-top:12px">
+                <label>seniority role & notice period</label>
+                <select id="f-level">
+                    <option value="L3" selected>L3 — Junior Role (30 Days Notice)</option>
+                    <option value="L2">L2 — Executive / Mid-Level (60 Days Notice)</option>
+                    <option value="L1">L1 — Senior / Leadership (90 Days Notice)</option>
+                </select>
             </div>
 
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeModal()">cancel</button>
-            <button class="btn btn-primary" onclick="saveEmployee()" id="modal-save-btn">save employee</button>
+            <button class="btn btn-primary" onclick="submitEmployee()" id="modal-submit">save employee</button>
         </div>
     </div>
 </div>
@@ -245,14 +255,20 @@
             const res = await fetch('http://localhost:8000/departments/', { headers: authHeaders() });
             if (res.ok) {
                 departments = await res.json();
-                const sel = document.getElementById('emp-dept');
+                const sel = document.getElementById('f-department') || document.getElementById('emp-dept');
                 const filterSel = document.getElementById('filter-dept');
-                sel.innerHTML = '<option value="">unassigned</option>';
-                filterSel.innerHTML = '<option value="">all departments</option>';
-                departments.forEach(d => {
-                    sel.innerHTML += `<option value="${d.id}">${d.name}</option>`;
-                    filterSel.innerHTML += `<option value="${d.id}">${d.name}</option>`;
-                });
+                if (sel) {
+                    sel.innerHTML = '<option value="">unassigned</option>';
+                    departments.forEach(d => {
+                        sel.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+                    });
+                }
+                if (filterSel) {
+                    filterSel.innerHTML = '<option value="">all departments</option>';
+                    departments.forEach(d => {
+                        filterSel.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+                    });
+                }
             }
         } catch(e) {}
     }
@@ -355,12 +371,16 @@
                     actionButtons += `<button class="btn btn-secondary btn-sm" style="height:32px;padding:0 10px;font-size:12px;margin-left:4px;background:#e2e8f0;color:#334155" onclick="submitResignation(${e.id}, '${codeDisplay}')">resign</button>`;
                 }
 
+                const levelBadge = e.level === 'L1' ? '<span class="badge badge-purple" style="font-size:10px;margin-top:2px;display:inline-block">Senior (90d Notice)</span>' :
+                                   e.level === 'L2' ? '<span class="badge badge-blue" style="font-size:10px;margin-top:2px;display:inline-block">Executive (60d Notice)</span>' :
+                                   '<span class="badge badge-gray" style="font-size:10px;margin-top:2px;display:inline-block">Junior (30d Notice)</span>';
+
                 return `
                 <tr style="${!isActive ? 'opacity:0.65;background:#f8fafc' : e.resignation_status === 'pending' ? 'background:#fffbeb' : ''}">
                     <td><strong style="color:#1e40af">${codeDisplay}</strong></td>
                     <td><strong>${e.first_name} ${e.last_name || ''}</strong></td>
                     <td style="color:#64748b">${e.email}</td>
-                    <td>${e.position}</td>
+                    <td><div>${e.position}</div>${levelBadge}</td>
                     <td>${dept ? `<span class="badge badge-blue">${dept.name}</span>` : '<span class="badge badge-gray">unassigned</span>'}</td>
                     <td>${e.salary ? `₹${e.salary.toLocaleString()}` : '—'}</td>
                     <td>${statusBadge}</td>
@@ -411,6 +431,7 @@
             document.getElementById(id).value = '';
         });
         document.getElementById('f-department').value = '';
+        document.getElementById('f-level').value = 'L3';
         document.getElementById('modal-error').classList.remove('show');
         document.getElementById('modal').classList.add('show');
         document.getElementById('f-salary').disabled = !isAdmin();
@@ -429,6 +450,7 @@
         document.getElementById('f-hiredate').value   = emp.hire_date  || '';
         document.getElementById('f-department').value = emp.department_id || '';
         document.getElementById('f-userid').value     = emp.user_id    || '';
+        document.getElementById('f-level').value      = emp.level      || 'L3';
         document.getElementById('modal-error').classList.remove('show');
         document.getElementById('modal').classList.add('show');
         document.getElementById('f-salary').disabled = !isAdmin();
@@ -502,7 +524,8 @@
             first_name: document.getElementById('f-firstname').value.trim(),
             last_name:  document.getElementById('f-lastname').value.trim(),
             email:      document.getElementById('f-email').value.trim(),
-            position:   document.getElementById('f-position').value.trim()
+            position:   document.getElementById('f-position').value.trim(),
+            level:      document.getElementById('f-level').value
         };
 
         const phone    = document.getElementById('f-phone').value.trim();

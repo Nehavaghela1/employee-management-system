@@ -58,7 +58,7 @@
         <span class="alert-icon"><svg class="icon icon-lg"><use href="#i-check-circle"></use></svg></span>
         <div class="alert-content">
             <div class="alert-title">account created successfully!</div>
-            <div>redirecting to login in 2 seconds...</div>
+            <div id="success-msg">redirecting to login...</div>
         </div>
     </div>
 
@@ -72,7 +72,7 @@
     <!-- Username -->
     <div class="form-group">
         <label>username <span style="color:#ef4444">*</span></label>
-        <input type="text" id="username" placeholder="minimum 3 characters" maxlength="30" autocomplete="username">
+        <input type="text" id="username" placeholder="example_1" maxlength="30" autocomplete="username">
         <div class="field-error" id="username-error"></div>
         <span class="char-count" id="username-count">0/30</span>
     </div>
@@ -100,6 +100,14 @@
             <li id="rule-number">at least one number</li>
             <li id="rule-special">at least one special character (bonus)</li>
         </ul>
+    </div>
+
+    <!-- Department Selection -->
+    <div class="form-group">
+        <label>department <span style="font-weight:400;color:#64748b">(optional)</span></label>
+        <select id="department" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;background:white">
+            <option value="">select department (optional)</option>
+        </select>
     </div>
 
     <!-- Confirm password -->
@@ -372,6 +380,21 @@
         document.getElementById('error-box').classList.remove('show');
     }
 
+    async function loadDepartments() {
+        try {
+            const res = await fetch('http://localhost:8000/departments/');
+            if (res.ok) {
+                const depts = await res.json();
+                const sel = document.getElementById('department');
+                if (sel && depts.length) {
+                    sel.innerHTML = '<option value="">select department (optional)</option>' +
+                        depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+                }
+            }
+        } catch(e) {}
+    }
+    loadDepartments();
+
     async function handleRegister() {
         document.getElementById('error-box').classList.remove('show');
         document.getElementById('success-box').classList.remove('show');
@@ -383,22 +406,40 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="loading"></span> creating account...';
 
+        const deptVal = document.getElementById('department') ? document.getElementById('department').value : '';
+        const body = {
+            email: document.getElementById('email').value.trim(),
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value
+        };
+        if (deptVal) body.department_id = parseInt(deptVal);
+
         try {
             const res = await fetch('http://localhost:8000/auth/register', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    email: document.getElementById('email').value.trim(),
-                    username: document.getElementById('username').value.trim(),
-                    password: document.getElementById('password').value
-                })
+                body: JSON.stringify(body)
             });
             const data = await res.json();
 
             if (res.ok) {
                 resetForm();
+                const empCode = data.employee_code || '';
+                document.getElementById('success-msg').innerHTML = `
+                    your employee code is 
+                    <strong style="color:#16a34a;font-size:16px;letter-spacing:1px">
+                        ${empCode}
+                    </strong>
+                    <br>
+                    <span style="font-size:12px;color:#4b5563">
+                        save this code — you can use it to login anytime
+                    </span>
+                    <br><br>
+                    redirecting to login in 3 seconds...
+                `;
                 document.getElementById('success-box').classList.add('show');
-                setTimeout(() => window.location.href = 'login.html', 2000);
+                localStorage.setItem('new_emp_code', empCode);
+                setTimeout(() => window.location.href = 'login.html', 3000);
             } else {
                 // Handle both string and array error formats from server
                 if (typeof data.detail === 'string') {

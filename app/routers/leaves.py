@@ -155,6 +155,27 @@ def update_leave(
 
     if leave_data.status: leave.status = leave_data.status
     if leave_data.reason: leave.reason = leave_data.reason
+
+    if leave.status == "approved":
+        from app.models.attendance import Attendance
+        from datetime import timedelta
+        cur_date = leave.start_date
+        while cur_date <= leave.end_date:
+            att = db.query(Attendance).filter(
+                Attendance.employee_id == leave.employee_id,
+                Attendance.date == cur_date
+            ).first()
+            if not att:
+                att = Attendance(
+                    employee_id=leave.employee_id,
+                    date=cur_date,
+                    status="on_leave"
+                )
+                db.add(att)
+            else:
+                att.status = "on_leave"
+            cur_date += timedelta(days=1)
+
     db.commit()
     db.refresh(leave)
     return leave

@@ -76,9 +76,23 @@
         </div>
     <!-- System Activity Audit Logs -->
     <div class="card" style="margin-top:20px">
-        <div class="card-header">
+        <div class="card-header" style="flex-wrap:wrap;gap:12px">
             <div class="card-title"><svg class="icon"><use href="#i-clock"></use></svg> real-time activity audit logs</div>
-            <button class="btn btn-secondary btn-sm" onclick="loadAuditLogs()">refresh logs</button>
+            <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+                <select id="audit-action-filter" onchange="loadAuditLogs()" style="padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px">
+                    <option value="">all activity actions</option>
+                    <option value="LOGIN_SUCCESS">LOGIN_SUCCESS</option>
+                    <option value="LOGIN_FAILED">LOGIN_FAILED</option>
+                    <option value="LOGIN_BLOCKED">LOGIN_BLOCKED</option>
+                    <option value="EMPLOYEE_DEACTIVATED">EMPLOYEE_DEACTIVATED</option>
+                    <option value="EMPLOYEE_REACTIVATED">EMPLOYEE_REACTIVATED</option>
+                    <option value="RESIGNATION_SUBMITTED">RESIGNATION_SUBMITTED</option>
+                    <option value="RESIGNATION_APPROVED">RESIGNATION_APPROVED</option>
+                    <option value="RESIGNATION_REJECTED">RESIGNATION_REJECTED</option>
+                </select>
+                <button class="btn btn-secondary btn-sm" onclick="exportAuditCSV()">export csv</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadAuditLogs()">refresh</button>
+            </div>
         </div>
         <div class="table-wrapper">
             <table>
@@ -177,9 +191,12 @@
 
     async function loadAuditLogs() {
         try {
-            const res = await fetch('http://localhost:8000/audit-logs/?limit=50', {
-                headers: authHeaders()
-            });
+            const actionFilter = document.getElementById('audit-action-filter') ? document.getElementById('audit-action-filter').value : '';
+            let url = 'http://localhost:8000/audit-logs/?limit=50';
+            if (actionFilter) {
+                url += `&action=${encodeURIComponent(actionFilter)}`;
+            }
+            const res = await fetch(url, { headers: authHeaders() });
             if (!res.ok) return;
             const logs = await res.json();
             if (!logs || !logs.length) {
@@ -201,6 +218,28 @@
                 </tr>`;
             }).join('');
         } catch(e) {}
+    }
+
+    async function exportAuditCSV() {
+        const actionFilter = document.getElementById('audit-action-filter') ? document.getElementById('audit-action-filter').value : '';
+        let url = 'http://localhost:8000/audit-logs/export';
+        if (actionFilter) {
+            url += `?action=${encodeURIComponent(actionFilter)}`;
+        }
+        try {
+            const res = await fetch(url, { headers: authHeaders() });
+            if (!res.ok) { alert('failed to export audit logs'); return; }
+            const blob = await res.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = 'audit_logs.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch(e) {
+            alert('connection error exporting audit logs CSV');
+        }
     }
 
     loadPendingLeaves();

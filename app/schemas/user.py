@@ -9,12 +9,13 @@ class UserRegister(BaseModel):
     email: EmailStr
     username: str
     password: str
+    department_id: Optional[int] = None
 
     @field_validator('password')
     @classmethod
     def password_min_length(cls, v):
         if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters')
+            raise ValueError('password must be at least 8 characters')
         return v
 
     @field_validator('username')
@@ -36,6 +37,8 @@ class UserResponse(BaseModel):
     is_active: bool
     is_admin: bool
     created_at: datetime
+    employee_code: Optional[str] = None  # ← must have this
+    employee_id: Optional[int] = None    # ← must have this
 
     class Config:
         from_attributes = True  # allows SQLAlchemy model → Pydantic schema conversion

@@ -67,14 +67,8 @@
 
     // If already logged in — go to dashboard
     if (isLoggedIn()) window.location.href = 'dashboard.html';
+    
 
-    // Auto-fill previous successfully logged-in credentials
-    document.addEventListener('DOMContentLoaded', () => {
-        const savedUser = localStorage.getItem('remember_username');
-        if (savedUser) {
-            document.getElementById('email').value = savedUser;
-        }
-    });
 
     // Client-side validation
     function validate() {
@@ -154,7 +148,7 @@
             const payload = JSON.parse(atob(data.access_token.split('.')[1]));
             localStorage.setItem('token', data.access_token);
             localStorage.setItem('email', payload.sub);
-            localStorage.setItem('remember_username', email);
+
 
             const meRes = await fetch('http://localhost:8000/auth/me', {
                 headers: {'Authorization': `Bearer ${data.access_token}`}
