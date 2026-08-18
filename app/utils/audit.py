@@ -8,7 +8,8 @@ def log_activity(
     user_email: Optional[str] = None,
     employee_code: Optional[str] = None,
     details: Optional[str] = None,
-    ip_address: Optional[str] = None
+    ip_address: Optional[str] = None,
+    company_id: Optional[int] = None
 ):
     try:
         log_entry = AuditLog(
@@ -16,7 +17,8 @@ def log_activity(
             employee_code=employee_code,
             action=action,
             details=details,
-            ip_address=ip_address
+            ip_address=ip_address,
+            company_id=company_id
         )
         db.add(log_entry)
         db.commit()

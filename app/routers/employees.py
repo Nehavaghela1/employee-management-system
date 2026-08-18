@@ -5,18 +5,19 @@ from app.database import get_db
 from app.models.employee import Employee
 from app.models.department import Department
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate, EmployeeResponse
-from app.utils.auth import get_current_user, get_admin_user
+from app.utils.auth import get_current_user, get_admin_user, get_hr_admin, get_super_admin
 from app.models.user import User
 from datetime import date as date_today
 from app.models.attendance import Attendance
 from app.models.leave import Leave
 from datetime import timedelta
-
+import calendar
 import logging
+
 logger = logging.getLogger(__name__)
 
-
 router = APIRouter(prefix="/employees", tags=["Employees"])
+
 @router.get("/", response_model=List[EmployeeResponse])
 def get_employees(
     department_id: Optional[int] = None,
@@ -28,9 +29,13 @@ def get_employees(
     limit: int = 10,
     offset: Optional[int] = None,
     skip: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     query = db.query(Employee)
+    if not current_user.is_super_admin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+
     if department_id:
         query = query.filter(Employee.department_id == department_id)
     if name:
@@ -77,22 +82,19 @@ def get_employees(
 @router.post("/", response_model=EmployeeResponse)
 def create_employee(
     emp: EmployeeCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_hr_admin),
     db: Session = Depends(get_db)
 ):
-    existing = db.query(Employee).filter(Employee.email == emp.email).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already exists")
-    existing_name = db.query(Employee).filter(
-        Employee.first_name == emp.first_name,
-        Employee.last_name == emp.last_name
-    ).first()
-    if existing_name:
-        raise HTTPException(status_code=400, detail="Employee with same name already exists")
+    query_existing = db.query(Employee).filter(Employee.email == emp.email)
+    if not current_user.is_super_admin:
+        query_existing = query_existing.filter(Employee.company_id == current_user.company_id)
+    if query_existing.first():
+        raise HTTPException(status_code=400, detail="Email already exists in your company")
+
     if emp.salary and emp.salary < 0:
          raise HTTPException(status_code=400, detail="Salary cannot be negative")
     if emp.hire_date:
-        if not current_user.is_admin:
+        if current_user.role not in ["hr_admin", "super_admin"] and not current_user.is_admin:
             thirty_days_ago = date_today.today() - timedelta(days=30)
             if emp.hire_date < thirty_days_ago:
                 raise HTTPException(
@@ -107,8 +109,10 @@ def create_employee(
     if emp.position and len(emp.position.strip()) == 0:
         raise HTTPException(status_code=400, detail="Position cannot be empty")
     if emp.department_id:
-        dept = db.query(Department).filter(Department.id == emp.department_id).first()
-        if not dept:
+        dept_query = db.query(Department).filter(Department.id == emp.department_id)
+        if not current_user.is_super_admin:
+            dept_query = dept_query.filter(Department.company_id == current_user.company_id)
+        if not dept_query.first():
             raise HTTPException(status_code=404, detail="Department not found")
 
     emp_level = (emp.level or "L3").upper()
@@ -125,7 +129,8 @@ def create_employee(
         department_id=emp.department_id,
         user_id=emp.user_id,
         level=emp_level,
-        notice_period_days=notice_days
+        notice_period_days=notice_days,
+        company_id=current_user.company_id
     )
     db.add(new_emp)
     db.commit()
@@ -133,8 +138,15 @@ def create_employee(
     return new_emp
 
 @router.get("/{emp_id}", response_model=EmployeeResponse)
-def get_employee(emp_id: int, db: Session = Depends(get_db)):
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+def get_employee(
+    emp_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Employee).filter(Employee.id == emp_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+    emp = query.first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
     return emp
@@ -146,34 +158,41 @@ def update_employee(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    query = db.query(Employee).filter(Employee.id == emp_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+    emp = query.first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
-    if not current_user.is_admin and emp.user_id != current_user.id:
+
+    if current_user.role not in ["hr_admin", "super_admin"] and not current_user.is_admin and emp.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only update your own employee record")
+
     if emp_data.department_id:
-        dept = db.query(Department).filter(Department.id == emp_data.department_id).first()
-        if not dept:
+        dept_query = db.query(Department).filter(Department.id == emp_data.department_id)
+        if not current_user.is_super_admin:
+            dept_query = dept_query.filter(Department.company_id == current_user.company_id)
+        if not dept_query.first():
             raise HTTPException(status_code=404, detail="Department not found")
-    if emp_data.hire_date and not current_user.is_admin:
+
+    if emp_data.hire_date and current_user.role not in ["hr_admin", "super_admin"] and not current_user.is_admin:
         if emp_data.hire_date > date_today.today():
-            raise HTTPException(status_code=400, detail="Hire date cannot be in the future")            
+            raise HTTPException(status_code=400, detail="Hire date cannot be in the future")
+
     if emp_data.first_name: emp.first_name = emp_data.first_name
     if emp_data.last_name: emp.last_name = emp_data.last_name
     if emp_data.email: emp.email = emp_data.email
     if emp_data.phone: emp.phone = emp_data.phone
     if emp_data.position: emp.position = emp_data.position
-    if emp_data.salary:
-        if not current_user.is_admin:
-            raise HTTPException(status_code=403, detail="Only admin can change salary")
+    if emp_data.salary is not None:
+        if current_user.role not in ["hr_admin", "super_admin"] and not current_user.is_admin:
+            raise HTTPException(status_code=403, detail="Only HR admin can change salary")
         emp.salary = emp_data.salary
     if emp_data.hire_date: emp.hire_date = emp_data.hire_date
     if emp_data.department_id: emp.department_id = emp_data.department_id
     db.commit()
     db.refresh(emp)
     return emp
-
-import calendar
 
 @router.get("/{emp_id}/payslip")
 def generate_payslip(
@@ -183,11 +202,14 @@ def generate_payslip(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    query = db.query(Employee).filter(Employee.id == emp_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+    emp = query.first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    if not current_user.is_admin and emp.user_id != current_user.id:
+    if current_user.role not in ["hr_admin", "super_admin"] and not current_user.is_admin and emp.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only view your own payslip")
 
     today = date_today.today()
@@ -273,15 +295,17 @@ def generate_payslip(
 @router.delete("/{emp_id}")
 def delete_employee(
     emp_id: int,
-    current_user: User = Depends(get_admin_user),
+    current_user: User = Depends(get_hr_admin),
     db: Session = Depends(get_db)
 ):
     from app.utils.audit import log_activity
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    query = db.query(Employee).filter(Employee.id == emp_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+    emp = query.first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    # Soft deactivate employee & user without deleting historical records
     emp.is_active = False
     user = None
     if emp.user_id:
@@ -299,11 +323,14 @@ def delete_employee(
 @router.post("/{emp_id}/toggle-active")
 def toggle_employee_active(
     emp_id: int,
-    current_user: User = Depends(get_admin_user),
+    current_user: User = Depends(get_hr_admin),
     db: Session = Depends(get_db)
 ):
     from app.utils.audit import log_activity
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    query = db.query(Employee).filter(Employee.id == emp_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+    emp = query.first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
@@ -334,11 +361,14 @@ def resign_employee(
     db: Session = Depends(get_db)
 ):
     from app.utils.audit import log_activity
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    query = db.query(Employee).filter(Employee.id == emp_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+    emp = query.first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    if not current_user.is_admin and current_user.email != emp.email and current_user.id != emp.user_id:
+    if current_user.role not in ["hr_admin", "super_admin"] and not current_user.is_admin and current_user.email != emp.email and current_user.id != emp.user_id:
         raise HTTPException(status_code=403, detail="You can only submit resignation for your own account")
 
     res_reason = (payload.get("reason") if payload and isinstance(payload, dict) else None) or reason
@@ -378,11 +408,14 @@ def approve_resignation(
     emp_id: int,
     payload: Optional[dict] = None,
     notice_action: Optional[str] = "waived",
-    current_user: User = Depends(get_admin_user),
+    current_user: User = Depends(get_hr_admin),
     db: Session = Depends(get_db)
 ):
     from app.utils.audit import log_activity
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    query = db.query(Employee).filter(Employee.id == emp_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+    emp = query.first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
@@ -415,11 +448,14 @@ def approve_resignation(
 @router.post("/{emp_id}/reject-resignation")
 def reject_resignation(
     emp_id: int,
-    current_user: User = Depends(get_admin_user),
+    current_user: User = Depends(get_hr_admin),
     db: Session = Depends(get_db)
 ):
     from app.utils.audit import log_activity
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    query = db.query(Employee).filter(Employee.id == emp_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+    emp = query.first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
@@ -441,11 +477,14 @@ def get_fnf_settlement(
     db: Session = Depends(get_db)
 ):
     from app.models.leave import Leave
-    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    query = db.query(Employee).filter(Employee.id == emp_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Employee.company_id == current_user.company_id)
+    emp = query.first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    if not current_user.is_admin and current_user.email != emp.email and current_user.id != emp.user_id:
+    if current_user.role not in ["hr_admin", "super_admin"] and not current_user.is_admin and current_user.email != emp.email and current_user.id != emp.user_id:
         raise HTTPException(status_code=403, detail="Not authorized to view FnF settlement statement")
 
     base_salary = emp.salary or 0

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -7,7 +7,7 @@ import io
 from app.database import get_db
 from app.models.audit_log import AuditLog
 from app.schemas.audit import AuditLogResponse
-from app.utils.auth import get_admin_user
+from app.utils.auth import get_admin_user, get_current_user, get_hr_admin
 from app.models.user import User
 
 router = APIRouter(
@@ -19,10 +19,13 @@ router = APIRouter(
 def get_audit_logs(
     action: Optional[str] = None,
     limit: int = 100,
-    admin_user: User = Depends(get_admin_user),
+    current_user: User = Depends(get_hr_admin),
     db: Session = Depends(get_db)
 ):
     query = db.query(AuditLog)
+    if not current_user.is_super_admin:
+        query = query.filter(AuditLog.company_id == current_user.company_id)
+
     if action and action.strip():
         query = query.filter(AuditLog.action.ilike(f"%{action.strip()}%"))
     return query.order_by(AuditLog.timestamp.desc()).limit(limit).all()
@@ -30,10 +33,13 @@ def get_audit_logs(
 @router.get("/export")
 def export_audit_logs_csv(
     action: Optional[str] = None,
-    admin_user: User = Depends(get_admin_user),
+    current_user: User = Depends(get_hr_admin),
     db: Session = Depends(get_db)
 ):
     query = db.query(AuditLog)
+    if not current_user.is_super_admin:
+        query = query.filter(AuditLog.company_id == current_user.company_id)
+
     if action and action.strip():
         query = query.filter(AuditLog.action.ilike(f"%{action.strip()}%"))
     logs = query.order_by(AuditLog.timestamp.desc()).all()

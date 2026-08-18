@@ -38,6 +38,9 @@ try:
 
         conn.execute(text("ALTER TABLE departments ADD COLUMN IF NOT EXISTS company_id INT;"))
         conn.execute(text("ALTER TABLE departments ADD COLUMN IF NOT EXISTS head_employee_id INT;"))
+
+        conn.execute(text("ALTER TABLE leaves ADD COLUMN IF NOT EXISTS company_id INT;"))
+        conn.execute(text("ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS company_id INT;"))
         conn.commit()
 except Exception as e:
     print(f"Migration notice: {e}")
@@ -123,6 +126,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(companies.router)
 app.include_router(departments.router)
 app.include_router(employees.router)
 app.include_router(attendance.router)

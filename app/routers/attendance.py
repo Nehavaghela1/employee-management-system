@@ -6,7 +6,7 @@ from app.database import get_db
 from app.models.attendance import Attendance
 from app.models.employee import Employee
 from app.schemas.attendance import AttendanceCreate, AttendanceUpdate, AttendanceResponse
-from app.utils.auth import get_current_user, get_admin_user
+from app.utils.auth import get_current_user, get_admin_user,get_hr_admin,get_manager,get_super_admin
 from app.models.user import User
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 from fastapi.responses import Response
@@ -19,9 +19,10 @@ def export_attendance_csv(
     end_date: Optional[date] = None,
     month: Optional[int] = None,
     year: Optional[int] = None,
+    current_user:User=Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    query = db.query(Attendance)
+    query = db.query(Attendance).filter(Attendance.company_id==current_user.company_id)
     if employee_id:
         query = query.filter(Attendance.employee_id == employee_id)
     if start_date:
@@ -68,9 +69,10 @@ def export_attendance_csv(
 def get_attendance(
     employee_id: Optional[int] = None,
     date_filter: Optional[date] = None,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    query = db.query(Attendance)
+    query = db.query(Attendance).filter(Attendance.company_id==current_user.company_id)
     if employee_id:
         query = query.filter(Attendance.employee_id == employee_id)
     if date_filter:
@@ -100,12 +102,21 @@ def mark_attendance(
 ):
     emp = None
     if att.employee_code:
-        emp = db.query(Employee).filter(Employee.employee_code.ilike(att.employee_code.strip())).first()
+        query = db.query(Employee).filter(Employee.employee_code.ilike(att.employee_code.strip()))
+        if not current_user.is_super_admin:
+            query = query.filter(Employee.company_id == current_user.company_id)
+        emp = query.first()
     elif att.employee_id:
-        emp = db.query(Employee).filter(Employee.id == att.employee_id).first()
+        query = db.query(Employee).filter(Employee.id == att.employee_id)
+        if not current_user.is_super_admin:
+            query = query.filter(Employee.company_id == current_user.company_id)
+        emp = query.first()
 
     if not emp:
-        emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
+        query = db.query(Employee).filter(Employee.user_id == current_user.id)
+        if not current_user.is_super_admin:
+            query = query.filter(Employee.company_id == current_user.company_id)
+        emp = query.first()
 
     if not emp:
         raise HTTPException(status_code=404, detail="employee not found")
@@ -145,7 +156,8 @@ def mark_attendance(
         date=today,
         check_in=att.check_in,
         check_out=att.check_out,
-        status=att.status
+        status=att.status,
+        company_id=current_user.company_id
     )
     db.add(new_att)
     db.commit()
@@ -153,8 +165,15 @@ def mark_attendance(
     return new_att
 
 @router.get("/{att_id}", response_model=AttendanceResponse)
-def get_attendance_record(att_id: int, db: Session = Depends(get_db)):
-    att = db.query(Attendance).filter(Attendance.id == att_id).first()
+def get_attendance_record(
+    att_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Attendance).filter(Attendance.id == att_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Attendance.company_id == current_user.company_id)
+    att = query.first()
     if not att:
         raise HTTPException(status_code=404, detail="attendance record not found")
     return att
@@ -166,7 +185,10 @@ def update_attendance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    att = db.query(Attendance).filter(Attendance.id == att_id).first()
+    query = db.query(Attendance).filter(Attendance.id == att_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Attendance.company_id == current_user.company_id)
+    att = query.first()
     if not att:
         raise HTTPException(status_code=404, detail="attendance record not found")
 
@@ -205,7 +227,10 @@ def delete_attendance(
     current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db)
 ):
-    att = db.query(Attendance).filter(Attendance.id == att_id).first()
+    query = db.query(Attendance).filter(Attendance.id == att_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Attendance.company_id == current_user.company_id)
+    att = query.first()
     if not att:
         raise HTTPException(status_code=404, detail="attendance record not found")
     db.delete(att)

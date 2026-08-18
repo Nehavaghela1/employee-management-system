@@ -4,8 +4,9 @@ from typing import List, Optional
 from app.database import get_db
 from app.models.leave import Leave
 from app.models.employee import Employee
+from app.models.leave_policy import LeavePolicy
 from app.schemas.leave import LeaveCreate, LeaveUpdate, LeaveResponse
-from app.utils.auth import get_current_user, get_admin_user
+from app.utils.auth import get_current_user, get_admin_user, get_hr_admin, get_super_admin
 from app.models.user import User
 from datetime import date
 
@@ -17,13 +18,24 @@ def get_leaves(
     status: Optional[str] = None,
     page: int = 1,
     limit: int = 10,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     query = db.query(Leave)
+    if not current_user.is_super_admin:
+        query = query.filter(Leave.company_id == current_user.company_id)
+
+    is_hr_or_admin = current_user.is_admin or current_user.role in ["hr_admin", "super_admin"]
+    if not is_hr_or_admin:
+        linked_emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
+        if linked_emp:
+            query = query.filter(Leave.employee_id == linked_emp.id)
+
     if employee_id:
         query = query.filter(Leave.employee_id == employee_id)
     if status:
         query = query.filter(Leave.status == status)
+
     skip = (page - 1) * limit
     leaves = query.offset(skip).limit(limit).all()
 
@@ -41,33 +53,40 @@ def create_leave(
 ):
     emp = None
     if leave.employee_code:
-        emp = db.query(Employee).filter(Employee.employee_code.ilike(leave.employee_code.strip())).first()
+        query_emp = db.query(Employee).filter(Employee.employee_code.ilike(leave.employee_code.strip()))
+        if not current_user.is_super_admin:
+            query_emp = query_emp.filter(Employee.company_id == current_user.company_id)
+        emp = query_emp.first()
     elif leave.employee_id:
-        emp = db.query(Employee).filter(Employee.id == leave.employee_id).first()
+        query_emp = db.query(Employee).filter(Employee.id == leave.employee_id)
+        if not current_user.is_super_admin:
+            query_emp = query_emp.filter(Employee.company_id == current_user.company_id)
+        emp = query_emp.first()
 
     if not emp:
-        emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
+        query_emp = db.query(Employee).filter(Employee.user_id == current_user.id)
+        if not current_user.is_super_admin:
+            query_emp = query_emp.filter(Employee.company_id == current_user.company_id)
+        emp = query_emp.first()
 
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    if not current_user.is_admin:
+    is_hr_or_admin = current_user.is_admin or current_user.role in ["hr_admin", "super_admin"]
+    if not is_hr_or_admin:
         linked_emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
         if not linked_emp or linked_emp.id != emp.id:
             raise HTTPException(status_code=403, detail="You can only apply leave for yourself")
 
-    # 3. End date must be after start date
     if leave.end_date < leave.start_date:
         raise HTTPException(status_code=400, detail="End date must be after start date")
     valid_leave_types = ["sick", "casual", "annual", "maternity", "paternity"]
     if leave.leave_type not in valid_leave_types:
         raise HTTPException(status_code=400, detail=f"leave type must be one of: {valid_leave_types}")
 
-    # 4. Cannot apply for past leave
     if leave.start_date < date.today():
         raise HTTPException(status_code=400, detail="Cannot apply for leave in the past")
 
-    # 5. No overlapping leaves
     overlapping = db.query(Leave).filter(
         Leave.employee_id == emp.id,
         Leave.status != "rejected",
@@ -86,7 +105,8 @@ def create_leave(
         start_date=leave.start_date,
         end_date=leave.end_date,
         reason=leave.reason,
-        status="pending"
+        status="pending",
+        company_id=current_user.company_id
     )
     db.add(new_leave)
     db.commit()
@@ -94,13 +114,30 @@ def create_leave(
     return new_leave
 
 @router.get("/balance/{employee_id}")
-def get_leave_balance(employee_id: int, year: Optional[int] = None, db: Session = Depends(get_db)):
+def get_leave_balance(
+    employee_id: int,
+    year: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     if not year:
         year = date.today().year
 
-    emp = db.query(Employee).filter(Employee.id == employee_id).first()
+    query_emp = db.query(Employee).filter(Employee.id == employee_id)
+    if not current_user.is_super_admin:
+        query_emp = query_emp.filter(Employee.company_id == current_user.company_id)
+    emp = query_emp.first()
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
+
+    is_hr_or_admin = current_user.is_admin or current_user.role in ["hr_admin", "super_admin"]
+    if not is_hr_or_admin:
+        linked_emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
+        if not linked_emp or linked_emp.id != emp.id:
+            raise HTTPException(status_code=403, detail="You can only view your own leave balance")
+
+    policy = db.query(LeavePolicy).filter(LeavePolicy.company_id == current_user.company_id).first()
+    annual_allowance = policy.annual_allowance if policy else 30
 
     leaves = db.query(Leave).filter(
         Leave.employee_id == employee_id,
@@ -113,7 +150,6 @@ def get_leave_balance(employee_id: int, year: Optional[int] = None, db: Session 
             days = (l.end_date - l.start_date).days + 1
             used_days += max(1, days)
 
-    annual_allowance = 30
     remaining_days = max(0, annual_allowance - used_days)
     unpaid_days = max(0, used_days - annual_allowance)
 
@@ -128,10 +164,24 @@ def get_leave_balance(employee_id: int, year: Optional[int] = None, db: Session 
     }
 
 @router.get("/{leave_id}", response_model=LeaveResponse)
-def get_leave(leave_id: int, db: Session = Depends(get_db)):
-    leave = db.query(Leave).filter(Leave.id == leave_id).first()
+def get_leave(
+    leave_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Leave).filter(Leave.id == leave_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Leave.company_id == current_user.company_id)
+    leave = query.first()
     if not leave:
         raise HTTPException(status_code=404, detail="Leave request not found")
+
+    is_hr_or_admin = current_user.is_admin or current_user.role in ["hr_admin", "super_admin"]
+    if not is_hr_or_admin:
+        linked_emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
+        if not linked_emp or linked_emp.id != leave.employee_id:
+            raise HTTPException(status_code=403, detail="Not authorized to view this leave request")
+
     return leave
 
 @router.put("/{leave_id}", response_model=LeaveResponse)
@@ -141,15 +191,18 @@ def update_leave(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    leave = db.query(Leave).filter(Leave.id == leave_id).first()
+    query = db.query(Leave).filter(Leave.id == leave_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Leave.company_id == current_user.company_id)
+    leave = query.first()
     if not leave:
         raise HTTPException(status_code=404, detail="Leave request not found")
 
-    # Only admin can change status
-    if leave_data.status and not current_user.is_admin:
-        raise HTTPException(status_code=403, detail="Only admin can approve or reject leave")
+    is_hr_or_admin = current_user.is_admin or current_user.role in ["hr_admin", "super_admin"]
 
-    # Status must be valid value
+    if leave_data.status and not is_hr_or_admin:
+        raise HTTPException(status_code=403, detail="Only HR admin can approve or reject leave")
+
     if leave_data.status and leave_data.status not in ["pending", "approved", "rejected"]:
         raise HTTPException(status_code=400, detail="Status must be pending, approved or rejected")
 
@@ -169,7 +222,8 @@ def update_leave(
                 att = Attendance(
                     employee_id=leave.employee_id,
                     date=cur_date,
-                    status="on_leave"
+                    status="on_leave",
+                    company_id=current_user.company_id
                 )
                 db.add(att)
             else:
@@ -183,14 +237,18 @@ def update_leave(
 @router.delete("/{leave_id}")
 def delete_leave(
     leave_id: int,
-    current_user: User = Depends(get_current_user),  # ← change from get_admin_user
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    leave = db.query(Leave).filter(Leave.id == leave_id).first()
+    query = db.query(Leave).filter(Leave.id == leave_id)
+    if not current_user.is_super_admin:
+        query = query.filter(Leave.company_id == current_user.company_id)
+    leave = query.first()
     if not leave:
         raise HTTPException(status_code=404, detail="Leave request not found")
 
-    if not current_user.is_admin:
+    is_hr_or_admin = current_user.is_admin or current_user.role in ["hr_admin", "super_admin"]
+    if not is_hr_or_admin:
         linked_emp = db.query(Employee).filter(Employee.user_id == current_user.id).first()
         if not linked_emp or linked_emp.id != leave.employee_id:
             raise HTTPException(status_code=403, detail="you can only cancel your own leave")
