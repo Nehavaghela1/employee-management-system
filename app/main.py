@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, companies, departments, employees, attendance, leaves, dashboard, audit
+from app.routers import auth, companies, departments, employees, attendance, leaves, dashboard, audit, kyc, experience
 from app.database import engine, Base
 import app.models.company
 import app.models.leave_policy
@@ -133,6 +133,8 @@ app.include_router(attendance.router)
 app.include_router(leaves.router)
 app.include_router(dashboard.router)
 app.include_router(audit.router)
+app.include_router(kyc.router)
+app.include_router(experience.router)
 
 @app.get("/")
 def root():
