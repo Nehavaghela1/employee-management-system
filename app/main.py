@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, departments, employees, attendance, leaves, dashboard, audit
+from app.routers import auth, companies, departments, employees, attendance, leaves, dashboard, audit
 from app.database import engine, Base
 import app.models.company
 import app.models.leave_policy
